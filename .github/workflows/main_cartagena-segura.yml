@@ -25,6 +25,16 @@ jobs:
           distribution: 'microsoft'
 
       - name: Build with Maven
+        env:
+          DB_URL: ${{ secrets.DB_URL }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASS: ${{ secrets.DB_PASS }}
+
+          MONGO_URL: ${{ secrets.MONGO_URL }}
+          MONGO_DB: ${{ secrets.MONGO_DB }}
+
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_EXPIRATION: ${{ secrets.JWT_EXPIRATION }}
         run: mvn clean install
 
       - name: Upload artifact for deployment job
@@ -60,4 +70,3 @@ jobs:
           app-name: 'Cartagena-Segura'
           slot-name: 'Production'
           package: '*.jar'
-          
