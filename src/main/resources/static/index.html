@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cargando...</title>
+</head>
+<body>
+<script>
+    // Redirige al login si no hay token, o al home si lo hay.
+    if (localStorage.getItem('jwtToken')) {
+        window.location.href = 'home.html';
+    } else {
+        window.location.href = 'auth.html';
+    }
+</script>
+</body>
+</html>

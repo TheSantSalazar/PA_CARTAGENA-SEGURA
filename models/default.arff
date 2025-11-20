@@ -1,0 +1,14 @@
+@relation DefaultModel
+
+@attribute age numeric
+@attribute income numeric
+@attribute credit_score numeric
+@attribute risk {low,medium,high}
+
+@data
+25,30000,650,medium
+45,80000,750,low
+35,45000,600,high
+28,35000,680,medium
+52,95000,780,low
+30,28000,580,high

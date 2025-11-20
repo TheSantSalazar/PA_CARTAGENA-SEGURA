@@ -1,0 +1,20 @@
+/* Estilos Globales de la Aplicación */
+body {
+    padding-top: 60px; /* Espacio para la barra de navegación fija */
+}
+
+/* Estilos de tabla de Incidentes */
+.table .status-PENDING {
+    background-color: #fff3cd; /* Amarillo claro */
+    color: #856404;
+}
+
+.table .status-IN_PROGRESS {
+    background-color: #d1ecf1; /* Azul claro */
+    color: #0c5460;
+}
+
+.table .status-RESOLVED {
+    background-color: #d4edda; /* Verde claro */
+    color: #155724;
+}
