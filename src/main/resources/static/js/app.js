@@ -1,742 +1,1087 @@
-// js/app.js
-const API_BASE_URL = 'http://localhost:8080/api';
-const INCIDENTS_URL = `${API_BASE_URL}/incidents`;
-const ML_API_BASE = `${API_BASE_URL}/ml`;
-
-// Elementos de la UI
-const tableBody = document.getElementById('incidentTableBody');
-const createForm = document.getElementById('createIncidentForm');
-const statusFilter = document.getElementById('statusFilter');
-
-let currentIncidentIdToUpdate = null; // Para el modal de estado
+// js/app.js - Versión 3.0 - 100% Funcional
 
 // ====================================================================
-// UTILIDADES Y AUTENTICACIÓN
+// CONFIGURACIÓN
 // ====================================================================
 
-function getToken() {
-    return localStorage.getItem('jwtToken');
+const CONFIG = {
+    API_BASE_URL: 'http://localhost:8080/api',
+    TOAST_DURATION: 3000,
+    REQUEST_TIMEOUT: 10000,
+    AUTO_DISMISS_ALERT: 5000
+};
+
+CONFIG.ENDPOINTS = {
+    INCIDENTS: `${CONFIG.API_BASE_URL}/incidents`,
+    ML: `${CONFIG.API_BASE_URL}/ml`,
+    AUTH: `${CONFIG.API_BASE_URL}/auth`
+};
+
+// ====================================================================
+// LOGGING SYSTEM
+// ====================================================================
+
+class Logger {
+    static error(message, error) {
+        console.error(`❌ ${message}:`, error);
+    }
+
+    static success(message) {
+        console.log(`✅ ${message}`);
+    }
+
+    static info(message) {
+        console.log(`ℹ️ ${message}`);
+    }
+
+    static warn(message) {
+        console.warn(`⚠️ ${message}`);
+    }
 }
 
-// Llama a esta función al cargar cualquier página protegida
-function checkAuthAndLoad() {
-    // Redirige al login si no hay token
-    if (!getToken()) {
-        // Excluye auth.html y index.html de la redirección forzada
-        if (!window.location.pathname.endsWith('auth.html') && !window.location.pathname.endsWith('index.html')) {
+// ====================================================================
+// AUTENTICACIÓN SERVICE
+// ====================================================================
+
+class AuthService {
+    static getToken() {
+        return localStorage.getItem('jwtToken');
+    }
+
+    static getUsername() {
+        return localStorage.getItem('username') || 'Usuario';
+    }
+
+    static setToken(token, username) {
+        localStorage.setItem('jwtToken', token);
+        localStorage.setItem('username', username);
+        Logger.success(`Token guardado para ${username}`);
+    }
+
+    static clear() {
+        localStorage.removeItem('jwtToken');
+        localStorage.removeItem('username');
+        Logger.success('Token y usuario eliminados');
+    }
+
+    static isAuthenticated() {
+        return !!this.getToken();
+    }
+
+    static logout() {
+        this.clear();
+        setTimeout(() => {
             window.location.href = 'auth.html';
+        }, 300);
+    }
+}
+
+// ====================================================================
+// API CLIENT - CENTRALIZADO
+// ====================================================================
+
+class APIClient {
+    static async request(url, options = {}) {
+        const token = AuthService.getToken();
+
+        if (!token && !url.includes('/auth/')) {
+            Logger.warn('No hay token, redirigiendo a auth');
+            AuthService.logout();
+            throw new Error('Sesión expirada. Por favor, inicie sesión.');
         }
-        return;
+
+        // Headers por defecto
+        const defaultHeaders = {
+            ...(!(options.body instanceof FormData) && {
+                'Content-Type': 'application/json'
+            })
+        };
+
+        // Agregar token si existe
+        if (token) {
+            defaultHeaders['Authorization'] = `Bearer ${token}`;
+        }
+
+        // Merge headers
+        const headers = {
+            ...defaultHeaders,
+            ...options.headers
+        };
+
+        // Controller para timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
+
+        try {
+            Logger.info(`${options.method || 'GET'} ${url}`);
+
+            const response = await fetch(url, {
+                ...options,
+                headers,
+                signal: controller.signal
+            });
+
+            // Manejo de errores HTTP
+            if (response.status === 401 || response.status === 403) {
+                Logger.warn('Token inválido, cerrando sesión');
+                AuthService.logout();
+                throw new Error('No autorizado. Sesión expirada.');
+            }
+
+            if (!response.ok) {
+                let errorMessage = `Error HTTP ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || errorMessage;
+                } catch (e) {
+                    // Si no es JSON, usar mensaje por defecto
+                }
+                throw new Error(errorMessage);
+            }
+
+            return response;
+
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                Logger.error('Timeout', error);
+                throw new Error('Timeout - Tiempo de espera agotado');
+            }
+            Logger.error('Error en request', error);
+            throw error;
+        } finally {
+            clearTimeout(timeoutId);
+        }
     }
 
-    // Inyecta la barra de navegación en todas las páginas internas protegidas
-    const navbarContainer = document.getElementById('navbar-container');
-    if (navbarContainer) {
-        injectNavbar();
+    static async get(url) {
+        const response = await this.request(url, { method: 'GET' });
+        return response.json();
     }
 
-    // Lógica específica por página
-    if (window.location.pathname.endsWith('incidents.html')) {
-        loadIncidents(); // Cargar la tabla
-    } else if (window.location.pathname.endsWith('map.html')) {
-        loadIncidentsForMap(); // Cargar el mapa
-    } else if (window.location.pathname.endsWith('ml.html')) {
-        initializeMLContent(); // Cargar la interfaz de ML
-    } else if (window.location.pathname.endsWith('profile.html')) {
-        // Datos ya se cargan en injectNavbar/setupProfile
-    }
-}
-
-// Función para hacer peticiones protegidas (Añade el header Authorization)
-async function protectedFetch(url, options = {}) {
-    const token = getToken();
-    if (!token) {
-        // En caso de fallo de token, redirige
-        logout();
-        throw new Error('No hay token disponible o la sesión ha expirado. Re-inicie sesión.');
-    }
-
-    const defaultOptions = {
-        headers: {
-            // Content-Type solo si no se usa FormData (ej. en train/csv o train/arff)
-            ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
-            'Authorization': `Bearer ${token}`
-        },
-        ...options
-    };
-
-    // Sobreescribir solo si se pasaron headers personalizados
-    if (options.headers) {
-        defaultOptions.headers = { ...defaultOptions.headers, ...options.headers };
-    }
-
-    const response = await fetch(url, defaultOptions);
-
-    // Si el token expira (401 o 403), cerrar sesión
-    if (response.status === 401 || response.status === 403) {
-        logout();
-        throw new Error('Sesión expirada o no autorizada. Re-inicie sesión.');
-    }
-    return response;
-}
-
-// ====================================================================
-// AUTENTICACIÓN (Lógica en auth.html)
-// ====================================================================
-
-async function handleLogin(event) {
-    event.preventDefault();
-    const username = document.getElementById('loginUsername').value;
-    const password = document.getElementById('loginPassword').value;
-    const messageDiv = document.getElementById('loginMessage');
-    messageDiv.textContent = '';
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    static async post(url, data) {
+        const response = await this.request(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
+            body: JSON.stringify(data)
         });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            localStorage.setItem('jwtToken', data.token);
-            localStorage.setItem('username', username); // Almacenar el username
-            window.location.href = 'home.html';
-        } else {
-            messageDiv.textContent = data.error || 'Credenciales inválidas.';
-        }
-    } catch (error) {
-        messageDiv.textContent = 'Error de conexión con el servidor.';
-        console.error("Error de login:", error);
-    }
-}
-
-async function handleRegister(event) {
-    event.preventDefault();
-    const username = document.getElementById('registerUsername').value;
-    const password = document.getElementById('registerPassword').value;
-    const messageDiv = document.getElementById('registerMessage');
-    messageDiv.textContent = 'Registrando...';
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/auth/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            messageDiv.textContent = '¡Registro exitoso! Por favor, inicie sesión.';
-            document.getElementById('registerForm').reset();
-            // Llama a la función global showForm (definida en auth.html)
-            if (typeof showForm === 'function') showForm('login');
-        } else {
-            messageDiv.textContent = data.error || 'Error al registrar usuario.';
-        }
-    } catch (error) {
-        messageDiv.textContent = 'Error de conexión con el servidor.';
-        console.error("Error de registro:", error);
-    }
-}
-
-function logout() {
-    localStorage.removeItem('jwtToken');
-    localStorage.removeItem('username');
-    alert('Sesión cerrada.');
-    window.location.href = 'auth.html';
-}
-
-// ====================================================================
-// NAVEGACIÓN Y NAVBAR
-// ====================================================================
-
-function injectNavbar() {
-    // Si estás usando la misma barra de navegación en todas las páginas:
-    const navbarHTML = `
-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
-            <div class="container">
-                <a class="navbar-brand" href="home.html">Cartagena Segura 🛡️</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse" id="navbarNav">
-                    <ul class="navbar-nav me-auto">
-                        <li class="nav-item"><a class="nav-link" href="home.html">Home</a></li>
-                        <li class="nav-item"><a class="nav-link" href="incidents.html">Incidentes (CRUD)</a></li>
-                        <li class="nav-item"><a class="nav-link" href="map.html">Mapa de Incidentes</a></li>
-                        <li class="nav-item"><a class="nav-link" href="ml.html">ML / WEKA</a></li>
-                        <li class="nav-item"><a class="nav-link" href="profile.html">Perfil</a></li>
-                    </ul>
-                    <span class="navbar-text me-3">
-                        Usuario: <strong id="currentUsername"></strong>
-                    </span>
-                    <button class="btn btn-outline-danger" onclick="logout()">Salir</button>
-                </div>
-            </div>
-        </nav>`;
-
-    const container = document.getElementById('navbar-container');
-    if (container) {
-        container.innerHTML = navbarHTML;
-
-        // Configurar el username en la barra de navegación
-        const username = localStorage.getItem('username') || 'N/A';
-        document.getElementById('currentUsername').textContent = username;
-
-        // Configurar el perfil si estamos en la página de perfil
-        if (window.location.pathname.endsWith('profile.html')) {
-            document.getElementById('profileUsername').textContent = username;
-            document.getElementById('profileRole').textContent = localStorage.getItem('role') || 'USER';
-            document.getElementById('profileToken').textContent = getToken() ? 'Token Válido' : 'No hay token';
-        }
-    }
-}
-
-
-// ====================================================================
-// GESTIÓN DE INCIDENTES (CRUD)
-// ====================================================================
-
-async function loadIncidents() {
-    const status = statusFilter.value;
-    let url = INCIDENTS_URL;
-
-    if (status !== 'ALL') {
-        url = `${INCIDENTS_URL}/status/${status}`;
+        return response.json();
     }
 
-    try {
-        const response = await protectedFetch(url);
-        if (!response.ok) {
-            throw new Error('Error al cargar los incidentes');
-        }
-        const incidents = await response.json();
-        renderIncidents(incidents);
-    } catch (error) {
-        console.error("Error al obtener incidentes:", error);
-        alert(`No se pudieron cargar los incidentes: ${error.message}`);
-        // Renderizar tabla vacía en caso de error
-        document.getElementById('incidentTableBody').innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error al cargar incidentes.</td></tr>';
-    }
-}
-
-function renderIncidents(incidents) {
-    tableBody.innerHTML = '';
-    if (incidents.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="6" class="text-center">No hay incidentes para mostrar.</td></tr>';
-        return;
-    }
-
-    incidents.forEach(incident => {
-        const row = document.createElement('tr');
-        row.className = `status-${incident.status}`;
-
-        row.innerHTML = `
-            <td>${incident.id}</td>
-            <td>${incident.type}</td>
-            <td>${incident.description}</td>
-            <td>${incident.location || 'N/A'}</td>
-            <td><strong>${incident.status}</strong></td>
-            <td>
-                <button class="btn btn-sm btn-info me-2" onclick="openStatusModal('${incident.id}', '${incident.status}')">
-                    Estado
-                </button>
-                <button class="btn btn-sm btn-danger" onclick="deleteIncident('${incident.id}')">
-                    Eliminar
-                </button>
-            </td>
-        `;
-        tableBody.appendChild(row);
-    });
-}
-
-async function handleCreateIncident(event) {
-    event.preventDefault();
-
-    const newIncident = {
-        type: document.getElementById('type').value,
-        description: document.getElementById('description').value,
-        location: document.getElementById('location').value,
-        // status se inicializa en PENDING en el backend
-    };
-
-    try {
-        const response = await protectedFetch(INCIDENTS_URL, {
-            method: 'POST',
-            body: JSON.stringify(newIncident)
-        });
-
-        if (!response.ok) {
-             const errorData = await response.json();
-             throw new Error(errorData.message || `Error HTTP: ${response.status}`);
-        }
-
-        alert('Incidente creado exitosamente!');
-        createForm.reset();
-        loadIncidents();
-    } catch (error) {
-        console.error("Error al crear incidente:", error);
-        alert(`Error al crear el incidente: ${error.message}`);
-    }
-}
-
-async function deleteIncident(id) {
-    if (!confirm(`¿Está seguro de eliminar el incidente con ID ${id}?`)) {
-        return;
-    }
-
-    try {
-        const response = await protectedFetch(`${INCIDENTS_URL}/${id}`, {
-            method: 'DELETE'
-        });
-
-        if (response.status === 204) {
-            alert('Incidente eliminado exitosamente.');
-            loadIncidents();
-        } else {
-             throw new Error(`Error al eliminar: Código ${response.status}`);
-        }
-    } catch (error) {
-        console.error("Error al eliminar incidente:", error);
-        alert(`Error al eliminar el incidente: ${error.message}`);
-    }
-}
-
-function openStatusModal(id, currentStatus) {
-    currentIncidentIdToUpdate = id;
-    document.getElementById('modalIncidentId').textContent = id;
-    document.getElementById('newStatus').value = currentStatus;
-
-    const statusModal = new bootstrap.Modal(document.getElementById('statusModal'));
-    statusModal.show();
-}
-
-async function handleStatusUpdate() {
-    if (!currentIncidentIdToUpdate) return;
-
-    const newStatus = document.getElementById('newStatus').value;
-    const id = currentIncidentIdToUpdate;
-
-    const url = `${INCIDENTS_URL}/${id}/status/${newStatus}`;
-
-    try {
-        const response = await protectedFetch(url, {
+    static async put(url, data = null) {
+        const response = await this.request(url, {
             method: 'PUT',
-            // No body required, the status is in the URL
-            headers: { 'Authorization': `Bearer ${getToken()}` }
+            ...(data && { body: JSON.stringify(data) })
         });
+        return response.status === 204 ? null : response.json();
+    }
 
-        if (!response.ok) {
-            throw new Error(`Error al actualizar estado: Código ${response.status}`);
-        }
+    static async delete(url) {
+        const response = await this.request(url, { method: 'DELETE' });
+        return response.status === 204 ? null : response.json();
+    }
 
-        const statusModal = bootstrap.Modal.getInstance(document.getElementById('statusModal'));
-        statusModal.hide();
-
-        alert(`Estado del incidente ${id} actualizado a ${newStatus}.`);
-        loadIncidents();
-    } catch (error) {
-        console.error("Error al actualizar estado:", error);
-        alert(`Error al actualizar estado: ${error.message}`);
+    static async postFormData(url, formData) {
+        const response = await this.request(url, {
+            method: 'POST',
+            body: formData,
+            headers: {}
+        });
+        return response.json();
     }
 }
 
-
 // ====================================================================
-// MAPA (LEAFLET)
+// UI HELPERS
 // ====================================================================
 
-let mymap = null;
-
-async function loadIncidentsForMap() {
-    try {
-        const response = await protectedFetch(INCIDENTS_URL);
-        if (!response.ok) {
-            throw new Error('Error al cargar incidentes para el mapa');
+class UIHelper {
+    static showAlert(elementId, message, type = 'info') {
+        const alertDiv = document.getElementById(elementId);
+        if (!alertDiv) {
+            Logger.warn(`Elemento #${elementId} no encontrado`);
+            return;
         }
-        const incidents = await response.json();
-        initializeMap(incidents);
-    } catch (error) {
-        console.error("Error al cargar datos del mapa:", error);
-        // Si no se pudo cargar, el contenedor del mapa queda vacío y se muestra una alerta.
-        alert('No se pudieron cargar los datos del mapa. Verifique la consola para detalles.');
+
+        const classMap = {
+            'success': 'alert-success',
+            'error': 'alert-danger',
+            'info': 'alert-info',
+            'warning': 'alert-warning'
+        };
+
+        const alertClass = classMap[type] || 'alert-info';
+
+        alertDiv.innerHTML = `
+            <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+
+        // Auto-dismiss
+        setTimeout(() => {
+            if (alertDiv.innerHTML) {
+                alertDiv.innerHTML = '';
+            }
+        }, CONFIG.AUTO_DISMISS_ALERT);
+    }
+
+    static showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        const typeClass = type === 'error' ? 'alert-danger' : `alert-${type}`;
+
+        toast.className = `alert ${typeClass} position-fixed bottom-0 end-0 m-3`;
+        toast.style.zIndex = '9999';
+        toast.innerHTML = `
+            <div class="d-flex align-items-center">
+                ${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'} &nbsp;
+                ${message}
+            </div>
+        `;
+
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.remove();
+        }, CONFIG.TOAST_DURATION);
+    }
+
+    static isPage(pageName) {
+        const path = window.location.pathname;
+        return path.includes(pageName);
+    }
+
+    static redirectTo(page) {
+        setTimeout(() => {
+            window.location.href = page;
+        }, 300);
+    }
+
+    static setButtonLoading(buttonId, isLoading) {
+        const btn = document.getElementById(buttonId);
+        if (!btn) return;
+
+        btn.disabled = isLoading;
+
+        if (isLoading) {
+            btn.classList.add('loading');
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Cargando...`;
+        } else {
+            btn.classList.remove('loading');
+            // Restaurar texto original si es posible
+            const originalText = btn.getAttribute('data-original-text');
+            if (originalText) {
+                btn.innerHTML = originalText;
+            }
+        }
     }
 }
 
-function initializeMap(incidents) {
-    const mapContainer = document.getElementById('mapid');
-    if (!mapContainer) return;
+// ====================================================================
+// NAVEGACIÓN - NAVBAR MANAGER
+// ====================================================================
 
-    if (mymap) { mymap.remove(); }
+class NavbarManager {
+    static inject() {
+        const container = document.getElementById('navbar-container');
+        if (!container) return;
 
-    // Inicializar mapa centrado en Cartagena, Colombia
-    mymap = L.map('mapid').setView([10.4000, -75.5000], 13);
+        const username = AuthService.getUsername();
+        const navbarHTML = `
+            <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+                <div class="container-fluid px-4">
+                    <a class="navbar-brand fw-bold" href="home.html">🛡️ Cartagena Segura</a>
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="navbarNav">
+                        <ul class="navbar-nav me-auto">
+                            <li class="nav-item">
+                                <a class="nav-link" href="home.html">📊 Home</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="incidents.html">📋 Incidentes</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="map.html">🗺️ Mapa</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="ml.html">🤖 ML/WEKA</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="profile.html">👤 Perfil</a>
+                            </li>
+                        </ul>
+                        <span class="navbar-text me-3">
+                            Usuario: <strong>${username}</strong>
+                        </span>
+                        <button class="btn btn-outline-danger btn-sm" onclick="AuthService.logout()">
+                            🚪 Salir
+                        </button>
+                    </div>
+                </div>
+            </nav>
+        `;
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap contributors'
-    }).addTo(mymap);
+        container.innerHTML = navbarHTML;
+        Logger.success('Navbar inyectado');
+    }
 
-    incidents.forEach(incident => {
-        // Asumimos que la ubicación viene como "lat,lon"
-        const coords = incident.location?.split(',');
-        if (coords && coords.length === 2) {
+    static setupProfile() {
+        const usernameEl = document.getElementById('profileUsername');
+        const tokenEl = document.getElementById('profileToken');
+
+        if (usernameEl) {
+            usernameEl.textContent = AuthService.getUsername();
+        }
+        if (tokenEl) {
+            tokenEl.textContent = AuthService.isAuthenticated() ? '✅ Token Válido' : '❌ No hay token';
+            if (AuthService.isAuthenticated()) {
+                tokenEl.className = 'status-badge status-valid';
+            }
+        }
+    }
+}
+
+// ====================================================================
+// GESTIÓN DE INCIDENTES
+// ====================================================================
+
+class IncidentManager {
+    static currentIncidentId = null;
+
+    static async loadIncidents(status = 'ALL') {
+        try {
+            const url = status === 'ALL'
+                ? CONFIG.ENDPOINTS.INCIDENTS
+                : `${CONFIG.ENDPOINTS.INCIDENTS}/status/${status}`;
+
+            Logger.info(`Cargando incidentes - Status: ${status}`);
+            const incidents = await APIClient.get(url);
+
+            this.renderIncidents(incidents);
+            Logger.success(`${incidents.length} incidentes cargados`);
+        } catch (error) {
+            Logger.error('Error al cargar incidentes', error);
+            UIHelper.showAlert('alertContainer', `❌ Error: ${error.message}`, 'error');
+
+            const tableBody = document.getElementById('incidentTableBody');
+            if (tableBody) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center text-danger">
+                            Error al cargar incidentes
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+    }
+
+    static renderIncidents(incidents) {
+        const tableBody = document.getElementById('incidentTableBody');
+        if (!tableBody) return;
+
+        if (!incidents || incidents.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">
+                        📭 No hay incidentes para mostrar
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tableBody.innerHTML = incidents.map(incident => `
+            <tr class="status-${incident.status}">
+                <td>${incident.id}</td>
+                <td>${incident.type}</td>
+                <td>${incident.description}</td>
+                <td>${incident.location || '—'}</td>
+                <td>
+                    <span class="status-badge status-${incident.status}">
+                        ${incident.status}
+                    </span>
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn btn-action btn-sm btn-info" onclick="IncidentManager.openStatusModal('${incident.id}', '${incident.status}')">
+                            ✏️ Estado
+                        </button>
+                        <button class="btn btn-action btn-sm btn-danger" onclick="IncidentManager.deleteIncident('${incident.id}')">
+                            🗑️ Eliminar
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    static async createIncident(event) {
+        event.preventDefault();
+
+        const type = document.getElementById('type')?.value?.trim();
+        const description = document.getElementById('description')?.value?.trim();
+        const location = document.getElementById('location')?.value?.trim();
+
+        // Validación
+        if (!type || !description || !location) {
+            UIHelper.showAlert('alertContainer', '⚠️ Por favor completa todos los campos', 'warning');
+            return;
+        }
+
+        const newIncident = { type, description, location };
+
+        try {
+            UIHelper.setButtonLoading('submitBtn', true);
+
+            const result = await APIClient.post(CONFIG.ENDPOINTS.INCIDENTS, newIncident);
+
+            Logger.success('Incidente creado');
+            UIHelper.showToast('✅ Incidente creado exitosamente', 'success');
+
+            document.getElementById('createIncidentForm')?.reset();
+
+            // Cambiar a tab de listado
+            document.querySelector('[data-bs-target="#list-pane"]')?.click();
+
+            // Recargar tabla
+            this.loadIncidents();
+        } catch (error) {
+            Logger.error('Error al crear incidente', error);
+            UIHelper.showToast(`❌ ${error.message}`, 'error');
+        } finally {
+            UIHelper.setButtonLoading('submitBtn', false);
+        }
+    }
+
+    static async deleteIncident(id) {
+        if (!confirm(`¿Estás seguro de eliminar el incidente ${id}?`)) {
+            return;
+        }
+
+        try {
+            await APIClient.delete(`${CONFIG.ENDPOINTS.INCIDENTS}/${id}`);
+            Logger.success(`Incidente ${id} eliminado`);
+            UIHelper.showToast('✅ Incidente eliminado', 'success');
+            this.loadIncidents();
+        } catch (error) {
+            Logger.error('Error al eliminar incidente', error);
+            UIHelper.showToast(`❌ ${error.message}`, 'error');
+        }
+    }
+
+    static openStatusModal(id, currentStatus) {
+        this.currentIncidentId = id;
+
+        const modalId = document.getElementById('modalIncidentId');
+        const newStatus = document.getElementById('newStatus');
+
+        if (modalId) modalId.textContent = id;
+        if (newStatus) newStatus.value = currentStatus;
+
+        const modal = new bootstrap.Modal(document.getElementById('statusModal'));
+        modal.show();
+
+        Logger.info(`Modal de estado abierto para incidente ${id}`);
+    }
+
+    static async updateStatus() {
+        const newStatus = document.getElementById('newStatus')?.value;
+
+        if (!this.currentIncidentId || !newStatus) {
+            UIHelper.showToast('❌ Datos incompletos', 'error');
+            return;
+        }
+
+        try {
+            const url = `${CONFIG.ENDPOINTS.INCIDENTS}/${this.currentIncidentId}/status/${newStatus}`;
+            await APIClient.put(url);
+
+            Logger.success(`Estado actualizado a ${newStatus}`);
+            UIHelper.showToast(`✅ Estado actualizado a ${newStatus}`, 'success');
+
+            // Cerrar modal
+            bootstrap.Modal.getInstance(document.getElementById('statusModal'))?.hide();
+
+            // Recargar
+            this.loadIncidents();
+        } catch (error) {
+            Logger.error('Error al actualizar estado', error);
+            UIHelper.showToast(`❌ ${error.message}`, 'error');
+        }
+    }
+}
+
+// ====================================================================
+// MAPA - LEAFLET
+// ====================================================================
+
+class MapManager {
+    static map = null;
+
+    static async loadIncidentsForMap() {
+        try {
+            Logger.info('Cargando incidentes para mapa');
+            const incidents = await APIClient.get(CONFIG.ENDPOINTS.INCIDENTS);
+            this.initializeMap(incidents);
+        } catch (error) {
+            Logger.error('Error al cargar mapa', error);
+            UIHelper.showAlert('mapAlert', `❌ ${error.message}`, 'error');
+        }
+    }
+
+    static initializeMap(incidents) {
+        const mapContainer = document.getElementById('mapid');
+        if (!mapContainer) {
+            Logger.warn('Contenedor del mapa no encontrado');
+            return;
+        }
+
+        // Limpiar mapa anterior
+        if (this.map) {
+            this.map.remove();
+        }
+
+        // Crear mapa centrado en Cartagena
+        this.map = L.map('mapid').setView([10.4000, -75.5000], 13);
+
+        // Agregar tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(this.map);
+
+        // Agregar marcadores
+        let markersAdded = 0;
+        incidents.forEach(incident => {
+            if (!incident.location) return;
+
+            const coords = incident.location.split(',');
+            if (coords.length !== 2) return;
+
             const lat = parseFloat(coords[0]);
             const lon = parseFloat(coords[1]);
 
-            if (!isNaN(lat) && !isNaN(lon)) {
-                L.marker([lat, lon])
-                    .addTo(mymap)
-                    .bindPopup(`
-                        <b>Incidente ID: ${incident.id}</b><br>
-                        Tipo: ${incident.type}<br>
-                        Estado: <span class="status-${incident.status}">${incident.status}</span>
-                    `);
+            if (isNaN(lat) || isNaN(lon)) return;
+
+            L.marker([lat, lon])
+                .addTo(this.map)
+                .bindPopup(`
+                    <strong>Incidente #${incident.id}</strong><br>
+                    <small>Tipo: ${incident.type}</small><br>
+                    <small>Estado: ${incident.status}</small>
+                `);
+
+            markersAdded++;
+        });
+
+        Logger.success(`${markersAdded} marcadores añadidos al mapa`);
+    }
+}
+
+// ====================================================================
+// MACHINE LEARNING MANAGER
+// ====================================================================
+
+class MLManager {
+    static currentIncidentId = null;
+
+    static initialize() {
+        Logger.info('Inicializando ML Manager');
+
+        // Tab de Predicción
+        const predictTab = document.getElementById('predict-ml-tab');
+        if (predictTab) {
+            predictTab.innerHTML = `
+                <h2>🔮 Realizar Predicción</h2>
+                <div id="predictAlert"></div>
+                <div class="card-custom mb-3">
+                    <h4>Modelo Activo</h4>
+                    <div id="activeModelInfo"><p>Cargando información del modelo...</p></div>
+                </div>
+                <form id="predictionForm" onsubmit="MLManager.predict(event)">
+                    <div id="featuresContainer"></div>
+                    <button type="submit" class="btn btn-primary-custom" id="predictBtn">
+                        🔮 Predecir
+                    </button>
+                </form>
+                <div id="predictionResult"></div>
+            `;
+        }
+
+        // Tab de Modelos
+        const modelsTab = document.getElementById('models-ml-tab');
+        if (modelsTab) {
+            modelsTab.innerHTML = `
+                <h2>📦 Gestión de Modelos</h2>
+                <div id="modelsAlert"></div>
+                <div id="modelsList"><p>Cargando modelos...</p></div>
+            `;
+        }
+
+        // Tab de Entrenar
+        const trainTab = document.getElementById('train-ml-tab');
+        if (trainTab) {
+            trainTab.innerHTML = `
+                <h2>🎓 Entrenar Nuevo Modelo</h2>
+                <div id="trainAlert"></div>
+                <form id="trainForm" onsubmit="MLManager.train(event)">
+                    <div class="form-group mb-3">
+                        <label for="modelName" class="form-label">Nombre del Modelo</label>
+                        <input type="text" class="form-control" id="modelName" required placeholder="mi_modelo_nuevo" minlength="3">
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="algorithm" class="form-label">Algoritmo</label>
+                        <select class="form-select" id="algorithm" required>
+                            <option value="">Seleccionar algoritmo...</option>
+                            <option value="J48">J48 (Árbol de decisión)</option>
+                            <option value="RandomForest">Random Forest</option>
+                            <option value="SMO">SVM (SMO)</option>
+                            <option value="NaiveBayes">Naive Bayes</option>
+                            <option value="JRip">JRip (Reglas)</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="trainFile" class="form-label">Archivo de Datos (ARFF o CSV)</label>
+                        <input type="file" class="form-control" id="trainFile" accept=".arff,.csv" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary-custom" id="trainBtn">
+                        🎓 Entrenar Modelo
+                    </button>
+                </form>
+            `;
+        }
+
+        this.loadModelInfo();
+    }
+
+    static switchTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+        const contentEl = document.getElementById(`${tabName}-ml-tab`);
+        if (contentEl) {
+            contentEl.classList.add('active');
+        }
+
+        const buttons = document.querySelectorAll('.tab-btn');
+        const tabIndex = { predict: 0, models: 1, train: 2 }[tabName];
+        if (buttons[tabIndex]) {
+            buttons[tabIndex].classList.add('active');
+        }
+
+        Logger.info(`Cambiando a tab: ${tabName}`);
+
+        if (tabName === 'models') this.loadModels();
+        if (tabName === 'predict') this.loadModelInfo();
+    }
+
+    static async loadModelInfo() {
+        try {
+            const data = await APIClient.get(`${CONFIG.ENDPOINTS.ML}/models`);
+
+            if (data.models && data.models.length > 0) {
+                const model = data.models.find(m => m.active) || data.models[0];
+                this.displayModelInfo(model);
+                this.displayFeatureInputs(model);
+            } else {
+                UIHelper.showAlert('predictAlert', '⚠️ No hay modelos disponibles. Entrena uno primero.', 'warning');
             }
+        } catch (error) {
+            Logger.error('Error cargando modelos', error);
+            UIHelper.showAlert('predictAlert', `❌ ${error.message}`, 'error');
         }
-    });
-}
-
-
-// ====================================================================
-// MACHINE LEARNING (ML/WEKA) LÓGICA
-// ====================================================================
-
-// Helper para mostrar alertas en la interfaz de ML
-function showAlert(elementId, message, type = 'info') {
-    const alertDiv = document.getElementById(elementId);
-    if (!alertDiv) return;
-    alertDiv.innerHTML = `<div class="alert ${type}">${message}</div>`;
-}
-
-// Inyecta el contenido HTML de ML en las pestañas
-function initializeMLContent() {
-    // 1. Inyectar HTML en la pestaña de Predicción
-    document.getElementById('predict-ml-tab').innerHTML = `
-        <h2>Realizar Predicción</h2>
-        <div id="predictAlert"></div>
-        <div class="card" style="margin-bottom: 20px;">
-            <h3>Modelo Activo</h3>
-            <div id="activeModelInfo"><p>Cargando información del modelo...</p></div>
-        </div>
-        <form id="predictionForm" onsubmit="handlePredict(event)">
-            <div id="featuresContainer"></div>
-            <button type="submit" id="predictBtn">Predecir</button>
-        </form>
-        <div id="predictionResult"></div>`;
-
-    // 2. Inyectar HTML en la pestaña de Modelos
-    document.getElementById('models-ml-tab').innerHTML = `
-        <h2>Gestión de Modelos</h2>
-        <div id="modelsAlert"></div>
-        <div id="modelsList"><p>Cargando modelos...</p></div>`;
-
-    // 3. Inyectar HTML en la pestaña de Entrenamiento
-    document.getElementById('train-ml-tab').innerHTML = `
-        <h2>Entrenar Nuevo Modelo</h2>
-        <div id="trainAlert"></div>
-        <form id="trainForm" onsubmit="handleTrain(event)">
-            <div class="form-group">
-                <label>Nombre del Modelo</label>
-                <input type="text" id="modelName" required placeholder="mi_modelo">
-            </div>
-
-            <div class="form-group">
-                <label>Algoritmo</label>
-                <select id="algorithm" required>
-                    <option value="J48">J48 (Árbol de decisión)</option>
-                    <option value="RandomForest">Random Forest</option>
-                    <option value="SMO">SVM (SMO)</option>
-                    <option value="NaiveBayes">Naive Bayes</option>
-                    <option value="JRip">JRip (Reglas)</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>Archivo de Datos (ARFF o CSV)</label>
-                <input type="file" id="trainFile" accept=".arff,.csv" required>
-            </div>
-
-            <button type="submit" id="trainBtn">Entrenar Modelo</button>
-        </form>`;
-
-    // Cargar la información inicial
-    loadModelInfo();
-}
-
-
-// Lógica para cambiar entre pestañas de ML (llamada desde ml.html)
-function switchMLTab(tabName) {
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-
-    document.getElementById(`${tabName}-ml-tab`).classList.add('active');
-
-    // Encuentra el botón correcto y actívalo
-    const buttons = document.querySelectorAll('.tabs .tab-btn');
-    const index = tabName === 'predict' ? 0 : tabName === 'models' ? 1 : 2;
-    if (buttons[index]) buttons[index].classList.add('active');
-
-    if (tabName === 'models') loadModels();
-    if (tabName === 'predict') loadModelInfo();
-}
-
-// ========== PREDICCIÓN ==========
-async function loadModelInfo() {
-    try {
-        const res = await protectedFetch(`${ML_API_BASE}/models`);
-        const data = await res.json();
-
-        if (data.models && data.models.length > 0) {
-            const activeModel = data.models.find(m => m.active) || data.models[0];
-            displayModelInfo(activeModel);
-            displayFeatureInputs(activeModel);
-        } else {
-            showAlert('predictAlert', 'No hay modelos disponibles. Entrene uno primero.', 'error');
-        }
-    } catch (err) {
-        showAlert('predictAlert', 'Error al cargar modelo: ' + err.message, 'error');
     }
-}
 
-function displayModelInfo(model) {
-    const html = `
-        <p><strong>Nombre:</strong> ${model.modelName}</p>
-        <p><strong>Algoritmo:</strong> ${model.algorithm}</p>
-        <p><strong>Clase:</strong> ${model.classAttribute}</p>
-        <p><strong>Atributos:</strong> ${model.attributes.length}</p>
-    `;
-    document.getElementById('activeModelInfo').innerHTML = html;
-}
+    static displayModelInfo(model) {
+        const modelInfo = document.getElementById('activeModelInfo');
+        if (!modelInfo) return;
 
-function displayFeatureInputs(model) {
-    const container = document.getElementById('featuresContainer');
-    let html = '';
+        modelInfo.innerHTML = `
+            <p><strong>Nombre:</strong> ${model.modelName}</p>
+            <p><strong>Algoritmo:</strong> ${model.algorithm}</p>
+            <p><strong>Clase:</strong> ${model.classAttribute}</p>
+            <p><strong>Atributos:</strong> ${model.attributes?.length || 0}</p>
+        `;
+    }
 
-    model.attributes.forEach(attr => {
-        if (attr.name === model.classAttribute) return;
+    static displayFeatureInputs(model) {
+        const container = document.getElementById('featuresContainer');
+        if (!container || !model.attributes) return;
 
-        if (attr.type === 'numeric') {
-            html += `
-                <div class="form-group">
-                    <label>${attr.name}</label>
-                    <input type="number" step="0.01" name="${attr.name}" required class="form-control">
+        const html = model.attributes
+            .filter(attr => attr.name !== model.classAttribute)
+            .map(attr => {
+                if (attr.type === 'numeric') {
+                    return `
+                        <div class="form-group mb-3">
+                            <label for="feat_${attr.name}" class="form-label">${attr.name}</label>
+                            <input type="number" step="0.01" class="form-control" id="feat_${attr.name}" name="${attr.name}" required>
+                        </div>
+                    `;
+                } else if (attr.type === 'nominal') {
+                    return `
+                        <div class="form-group mb-3">
+                            <label for="feat_${attr.name}" class="form-label">${attr.name}</label>
+                            <select class="form-select" id="feat_${attr.name}" name="${attr.name}" required>
+                                <option value="">Seleccionar...</option>
+                                ${attr.possibleValues?.map(v => `<option value="${v}">${v}</option>`).join('') || ''}
+                            </select>
+                        </div>
+                    `;
+                }
+                return '';
+            })
+            .join('');
+
+        container.innerHTML = html;
+    }
+
+    static async predict(e) {
+        e.preventDefault();
+
+        const formData = new FormData(e.target);
+        const features = {};
+
+        for (let [key, value] of formData.entries()) {
+            features[key] = isNaN(value) ? value : parseFloat(value);
+        }
+
+        try {
+            UIHelper.setButtonLoading('predictBtn', true);
+
+            const result = await APIClient.post(`${CONFIG.ENDPOINTS.ML}/predict`, { features });
+            this.displayPredictionResult(result);
+
+            Logger.success('Predicción completada');
+        } catch (error) {
+            Logger.error('Error en predicción', error);
+            UIHelper.showAlert('predictAlert', `❌ ${error.message}`, 'error');
+        } finally {
+            UIHelper.setButtonLoading('predictBtn', false);
+        }
+    }
+
+    static displayPredictionResult(prediction) {
+        const resultDiv = document.getElementById('predictionResult');
+        if (!resultDiv) return;
+
+        const html = `
+            <div class="prediction-result">
+                <h3>✅ Resultado de Predicción</h3>
+                <div class="result-item">
+                    <span class="result-label">Predicción:</span>
+                    <span class="result-value">${prediction.prediction}</span>
                 </div>
-            `;
-        } else if (attr.type === 'nominal') {
-            html += `
-                <div class="form-group">
-                    <label>${attr.name}</label>
-                    <select name="${attr.name}" required class="form-select">
-                        <option value="">Seleccionar...</option>
-                        ${attr.possibleValues.map(v => `<option value="${v}">${v}</option>`).join('')}
-                    </select>
+                <div class="result-item">
+                    <span class="result-label">Confianza:</span>
+                    <span class="result-value">${(prediction.confidence * 100).toFixed(2)}%</span>
                 </div>
-            `;
-        }
-    });
 
-    container.innerHTML = html;
-}
+                <h5 class="mt-4 mb-3">📊 Probabilidades por Clase:</h5>
+                ${Object.entries(prediction.distribution || {})
+                    .map(([key, value]) => `
+                        <div class="progress-item">
+                            <div class="progress-label">
+                                <span>${key}</span>
+                                <span>${(value * 100).toFixed(2)}%</span>
+                            </div>
+                            <div class="progress-bar-custom">
+                                <div class="progress-fill" style="width: ${value * 100}%"></div>
+                            </div>
+                        </div>
+                    `)
+                    .join('')}
+            </div>
+        `;
 
-async function handlePredict(e) {
-    e.preventDefault();
-
-    const formData = new FormData(e.target);
-    const features = {};
-    formData.forEach((value, key) => {
-        // Intenta parsear a float si es numérico, sino usa el string
-        features[key] = isNaN(value) ? value : parseFloat(value);
-    });
-
-    document.getElementById('predictBtn').disabled = true;
-
-    try {
-        const res = await protectedFetch(`${ML_API_BASE}/predict`, {
-            method: 'POST',
-            body: JSON.stringify({ features })
-        });
-
-        const data = await res.json();
-
-        if (res.ok) {
-            displayPredictionResult(data);
-        } else {
-            showAlert('predictAlert', data.message || 'Error en predicción', 'error');
-        }
-    } catch (err) {
-        showAlert('predictAlert', 'Error: ' + err.message, 'error');
-    } finally {
-        document.getElementById('predictBtn').disabled = false;
+        resultDiv.innerHTML = html;
     }
-}
 
-function displayPredictionResult(prediction) {
-    const resultDiv = document.getElementById('predictionResult');
-    const html = `
-        <div class="prediction-result">
-            <h3>✅ Resultado de Predicción</h3>
-            <div class="result-item">
-                <strong>Predicción:</strong>
-                <span style="font-size: 18px; font-weight: bold; color: #667eea;">${prediction.prediction}</span>
-            </div>
-            <div class="result-item">
-                <strong>Confianza:</strong>
-                <span>${(prediction.confidence * 100).toFixed(2)}%</span>
-            </div>
-            <h4 style="margin-top: 15px; margin-bottom: 10px;">Probabilidades:</h4>
-            ${Object.entries(prediction.distribution).map(([key, value]) => `
-                <div style="margin-bottom: 10px;">
-                    <div class="result-item">
-                        <span>${key}</span>
-                        <span>${(value * 100).toFixed(2)}%</span>
-                    </div>
-                    <div class="bar-container">
-                        <div class="bar" style="width: ${value * 100}%"></div>
-                    </div>
+    static async loadModels() {
+        try {
+            const data = await APIClient.get(`${CONFIG.ENDPOINTS.ML}/models`);
+            this.displayModels(data.models || []);
+        } catch (error) {
+            Logger.error('Error cargando modelos', error);
+            UIHelper.showAlert('modelsAlert', `❌ ${error.message}`, 'error');
+        }
+    }
+
+    static displayModels(models) {
+        const modelsList = document.getElementById('modelsList');
+        if (!modelsList) return;
+
+        if (!models || models.length === 0) {
+            modelsList.innerHTML = '<p class="text-muted text-center py-4">📭 No hay modelos disponibles</p>';
+            return;
+        }
+
+        modelsList.innerHTML = models.map(model => `
+            <div class="model-item">
+                <div class="model-info">
+                    <h5>${model.modelName}</h5>
+                    <p>Algoritmo: ${model.algorithm}</p>
+                    <p>Atributos: ${model.attributes?.length || 0}</p>
+                    ${model.active ? '<span class="model-badge">✅ ACTIVO</span>' : ''}
                 </div>
-            `).join('')}
-        </div>
-    `;
-    resultDiv.innerHTML = html;
-}
-
-// ========== MODELOS ==========
-async function loadModels() {
-    try {
-        const res = await protectedFetch(`${ML_API_BASE}/models`);
-        const data = await res.json();
-        displayModels(data.models);
-    } catch (err) {
-        showAlert('modelsAlert', 'Error al cargar modelos: ' + err.message, 'error');
-    }
-}
-
-function displayModels(models) {
-    const modelsList = document.getElementById('modelsList');
-    if (models.length === 0) {
-        modelsList.innerHTML = '<p>No hay modelos disponibles</p>';
-        return;
-    }
-
-    const html = models.map(model => `
-        <div class="model-item">
-            <div class="model-info">
-                <h4>${model.modelName}</h4>
-                <p>Algoritmo: ${model.algorithm}</p>
-                <p>Clase: ${model.classAttribute}</p>
-                <p>Atributos: ${model.attributes.length}</p>
-                ${model.active ? '<span class="model-badge">ACTIVO</span>' : ''}
+                <div class="model-actions">
+                    ${!model.active ? `<button class="btn btn-success-custom btn-sm" onclick="MLManager.activateModel('${model.modelName}')">Activar</button>` : ''}
+                    <button class="btn btn-danger-custom btn-sm" onclick="MLManager.deleteModel('${model.modelName}')">Eliminar</button>
+                </div>
             </div>
-            <div class="model-actions">
-                ${!model.active ? `<button class="btn-sm btn-success" onclick="activateModel('${model.modelName}')">Activar</button>` : ''}
-                <button class="btn-sm btn-danger" onclick="deleteModel('${model.modelName}')">Eliminar</button>
-            </div>
-        </div>
-    `).join('');
-
-    modelsList.innerHTML = html;
-}
-
-async function activateModel(modelName) {
-    try {
-        const res = await protectedFetch(`${ML_API_BASE}/models/${modelName}/activate`, {
-            method: 'PUT'
-        });
-
-        if (res.ok) {
-            showAlert('modelsAlert', 'Modelo activado', 'success');
-            loadModels();
-            loadModelInfo();
-        } else {
-            const errorData = await res.json();
-            showAlert('modelsAlert', errorData.message || 'Error al activar', 'error');
-        }
-    } catch (err) {
-        showAlert('modelsAlert', 'Error: ' + err.message, 'error');
+        `).join('');
     }
-}
 
-async function deleteModel(modelName) {
-    if (!confirm(`¿Eliminar modelo "${modelName}"? Esta acción es irreversible.`)) return;
-
-    try {
-        const res = await protectedFetch(`${ML_API_BASE}/models/${modelName}`, {
-            method: 'DELETE'
-        });
-
-        if (res.ok) {
-            showAlert('modelsAlert', 'Modelo eliminado', 'success');
-            loadModels();
-        } else {
-            const errorData = await res.json();
-            showAlert('modelsAlert', errorData.message || 'Error al eliminar', 'error');
+    static async activateModel(modelName) {
+        try {
+            await APIClient.put(`${CONFIG.ENDPOINTS.ML}/models/${modelName}/activate`);
+            Logger.success(`Modelo ${modelName} activado`);
+            UIHelper.showToast('✅ Modelo activado', 'success');
+            this.loadModels();
+            this.loadModelInfo();
+        } catch (error) {
+            Logger.error('Error activando modelo', error);
+            UIHelper.showToast(`❌ ${error.message}`, 'error');
         }
-    } catch (err) {
-        showAlert('modelsAlert', 'Error: ' + err.message, 'error');
     }
-}
 
-// ========== ENTRENAR ==========
-async function handleTrain(e) {
-    e.preventDefault();
+    static async deleteModel(modelName) {
+        if (!confirm(`¿Eliminar el modelo "${modelName}"? Esta acción es irreversible.`)) {
+            return;
+        }
 
-    const formData = new FormData();
-    const fileInput = document.getElementById('trainFile');
+        try {
+            await APIClient.delete(`${CONFIG.ENDPOINTS.ML}/models/${modelName}`);
+            Logger.success(`Modelo ${modelName} eliminado`);
+            UIHelper.showToast('✅ Modelo eliminado', 'success');
+            this.loadModels();
+        } catch (error) {
+            Logger.error('Error eliminando modelo', error);
+            UIHelper.showToast(`❌ ${error.message}`, 'error');
+        }
+    }
 
-    formData.append('file', fileInput.files[0]);
-    formData.append('algorithm', document.getElementById('algorithm').value);
-    formData.append('modelName', document.getElementById('modelName').value);
+    static async train(e) {
+        e.preventDefault();
 
-    document.getElementById('trainBtn').disabled = true;
+        const formData = new FormData();
+        const fileInput = document.getElementById('trainFile');
+        const modelName = document.getElementById('modelName')?.value;
+        const algorithm = document.getElementById('algorithm')?.value;
 
-    try {
-        const fileName = fileInput.files[0].name;
-        const endpoint = fileName.endsWith('.csv')
-            ? `${ML_API_BASE}/train/csv`
-            : `${ML_API_BASE}/train/arff`;
+        if (!fileInput.files[0] || !modelName || !algorithm) {
+            UIHelper.showToast('❌ Por favor completa todos los campos', 'error');
+            return;
+        }
 
-        // Usamos fetch normal, inyectando solo el token en el header (para manejar FormData)
-        const res = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${getToken()}`
-            },
-            body: formData
-        });
+        formData.append('file', fileInput.files[0]);
+        formData.append('modelName', modelName);
+        formData.append('algorithm', algorithm);
 
-        const data = await res.json();
+        try {
+            UIHelper.setButtonLoading('trainBtn', true);
 
-        if (res.ok) {
-            showAlert('trainAlert', `✅ Modelo entrenado! Precisión: ${data.accuracy.toFixed(2)}%`, 'success');
+            const fileName = fileInput.files[0].name;
+            const endpoint = fileName.endsWith('.csv')
+                ? `${CONFIG.ENDPOINTS.ML}/train/csv`
+                : `${CONFIG.ENDPOINTS.ML}/train/arff`;
+
+            Logger.info(`Entrenando modelo: ${modelName} con ${algorithm}`);
+
+            const result = await APIClient.postFormData(endpoint, formData);
+
+            Logger.success(`Modelo entrenado con precisión: ${result.accuracy}`);
+            UIHelper.showToast(`✅ Modelo entrenado! Precisión: ${(result.accuracy * 100).toFixed(2)}%`, 'success');
+
             e.target.reset();
-        } else {
-            showAlert('trainAlert', data.message || 'Error al entrenar', 'error');
+            this.loadModels();
+            this.switchTab('models');
+        } catch (error) {
+            Logger.error('Error entrenando modelo', error);
+            UIHelper.showAlert('trainAlert', `❌ ${error.message}`, 'error');
+        } finally {
+            UIHelper.setButtonLoading('trainBtn', false);
         }
-    } catch (err) {
-        showAlert('trainAlert', 'Error: ' + err.message, 'error');
-    } finally {
-        document.getElementById('trainBtn').disabled = false;
     }
 }
 
+// ====================================================================
+// PAGE INITIALIZER
+// ====================================================================
+
+class PageInitializer {
+    static checkAuthAndLoad() {
+        const isAuth = AuthService.isAuthenticated();
+        const isAuthPage = UIHelper.isPage('auth.html');
+        const isIndexPage = UIHelper.isPage('index.html');
+
+        Logger.info(`Inicializando página - Autenticado: ${isAuth}`);
+
+        // Si no está autenticado y no es página de auth
+        if (!isAuth && !isAuthPage && !isIndexPage) {
+            Logger.warn('No autenticado, redirigiendo a auth');
+            UIHelper.redirectTo('auth.html');
+            return;
+        }
+
+        // Si está autenticado, inyectar navbar
+        if (isAuth) {
+            NavbarManager.inject();
+        }
+
+        // Lógica por página
+        if (UIHelper.isPage('incidents.html')) {
+            IncidentManager.loadIncidents();
+        } else if (UIHelper.isPage('map.html')) {
+            MapManager.loadIncidentsForMap();
+        } else if (UIHelper.isPage('ml.html')) {
+            MLManager.initialize();
+        } else if (UIHelper.isPage('profile.html')) {
+            NavbarManager.setupProfile();
+        }
+    }
+}
 
 // ====================================================================
-// INICIALIZACIÓN
+// EVENT LISTENERS - INICIALIZACIÓN
 // ====================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Inicializa la lógica de seguridad y carga de página
-    checkAuthAndLoad();
+    Logger.info('📄 DOM cargado');
 
-    // Asigna listeners a los formularios de autenticación si existen (en auth.html)
-    document.getElementById('loginForm')?.addEventListener('submit', handleLogin);
-    document.getElementById('registerForm')?.addEventListener('submit', handleRegister);
+    // Inicializar según página
+    PageInitializer.checkAuthAndLoad();
 
-    // Asigna listener al formulario de creación de incidentes si existe (en incidents.html)
-    document.getElementById('createIncidentForm')?.addEventListener('submit', handleCreateIncident);
+    // ===== EVENTOS DE AUTH (auth.html) =====
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername')?.value;
+            const password = document.getElementById('loginPassword')?.value;
+
+            if (!username || !password) {
+                UIHelper.showAlert('loginMessage', '⚠️ Por favor completa todos los campos', 'warning');
+                return;
+            }
+
+            UIHelper.setButtonLoading('loginBtn', true);
+
+            fetch(`${CONFIG.ENDPOINTS.AUTH}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.token) {
+                        AuthService.setToken(data.token, username);
+                        Logger.success('Login exitoso');
+                        UIHelper.showToast('✅ ¡Bienvenido!', 'success');
+                        setTimeout(() => {
+                            UIHelper.redirectTo('home.html');
+                        }, 500);
+                    } else {
+                        UIHelper.showAlert('loginMessage', `❌ ${data.error || 'Credenciales inválidas'}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    Logger.error('Error login', error);
+                    UIHelper.showAlert('loginMessage', '❌ Error de conexión', 'error');
+                })
+                .finally(() => {
+                    UIHelper.setButtonLoading('loginBtn', false);
+                });
+        });
+    }
+
+    const registerForm = document.getElementById('registerForm');
+    if (registerForm) {
+        registerForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = document.getElementById('registerUsername')?.value;
+            const password = document.getElementById('registerPassword')?.value;
+
+            if (!username || !password) {
+                UIHelper.showAlert('registerMessage', '⚠️ Por favor completa todos los campos', 'warning');
+                return;
+            }
+
+            UIHelper.setButtonLoading('registerBtn', true);
+
+            fetch(`${CONFIG.ENDPOINTS.AUTH}/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.message && data.message.includes('success')) {
+                        UIHelper.showAlert('registerMessage', '✅ Registro exitoso. Por favor, inicia sesión.', 'success');
+                        registerForm.reset();
+                        setTimeout(() => {
+                            switchAuthTab('login');
+                        }, 1000);
+                    } else {
+                        UIHelper.showAlert('registerMessage', `❌ ${data.error || 'Error al registrar'}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    Logger.error('Error registro', error);
+                    UIHelper.showAlert('registerMessage', '❌ Error de conexión', 'error');
+                })
+                .finally(() => {
+                    UIHelper.setButtonLoading('registerBtn', false);
+                });
+        });
+    }
+
+    // ===== EVENTOS DE INCIDENTES (incidents.html) =====
+    const createForm = document.getElementById('createIncidentForm');
+    if (createForm) {
+        createForm.addEventListener('submit', (e) => {
+            IncidentManager.createIncident(e);
+        });
+    }
+
+    const statusFilter = document.getElementById('statusFilter');
+    if (statusFilter) {
+        statusFilter.addEventListener('change', (e) => {
+            IncidentManager.loadIncidents(e.target.value);
+        });
+    }
+
+    const updateStatusBtn = document.getElementById('updateStatusBtn');
+    if (updateStatusBtn) {
+        updateStatusBtn.addEventListener('click', () => {
+            IncidentManager.updateStatus();
+        });
+    }
+
+    // ===== EVENTOS DE ML (ml.html) =====
+    const predictionForm = document.getElementById('predictionForm');
+    if (predictionForm) {
+        predictionForm.addEventListener('submit', (e) => {
+            MLManager.predict(e);
+        });
+    }
+
+    const trainForm = document.getElementById('trainForm');
+    if (trainForm) {
+        trainForm.addEventListener('submit', (e) => {
+            MLManager.train(e);
+        });
+    }
+
+    Logger.success('✅ App inicializada correctamente');
 });
+
+// ====================================================================
+// FUNCIONES GLOBALES (para compatibilidad con onclick)
+// ====================================================================
+
+function switchMLTab(tabName) {
+    MLManager.switchTab(tabName);
+}

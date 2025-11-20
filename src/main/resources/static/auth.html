@@ -3,76 +3,611 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acceso - Cartagena Segura</title>
+    <meta name="description" content="Sistema de seguridad de Cartagena - Acceso seguro">
+    <meta name="theme-color" content="#0d6efd">
+    <title>Acceso - Cartagena Segura 🛡️</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
+
     <style>
-        body { background-color: #f8f9fa; }
-        .auth-container { max-width: 400px; margin-top: 10vh; }
+        :root {
+            --primary-color: #0d6efd;
+            --success-color: #198754;
+            --danger-color: #dc3545;
+        }
+
+        html, body {
+            height: 100%;
+            background: linear-gradient(135deg, var(--primary-color) 0%, #0b5ed7 100%);
+        }
+
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .auth-wrapper {
+            width: 100%;
+            max-width: 450px;
+            padding: 1rem;
+        }
+
+        .auth-card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .auth-header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #0b5ed7 100%);
+            padding: 2rem 1rem;
+            text-align: center;
+            color: white;
+        }
+
+        .auth-logo {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .auth-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.5px;
+        }
+
+        .auth-subtitle {
+            font-size: 0.875rem;
+            opacity: 0.9;
+            margin-top: 0.25rem;
+        }
+
+        .nav-tabs-auth {
+            border-bottom: 2px solid #e9ecef;
+            padding: 0 1.5rem;
+            margin: 0;
+            display: flex;
+            gap: 0;
+        }
+
+        .nav-tabs-auth .nav-link {
+            border: none;
+            color: #6c757d;
+            font-weight: 500;
+            padding: 1rem 0;
+            position: relative;
+            transition: color 0.3s ease;
+            flex: 1;
+            text-align: center;
+            background: none;
+            cursor: pointer;
+        }
+
+        .nav-tabs-auth .nav-link:hover {
+            color: var(--primary-color);
+        }
+
+        .nav-tabs-auth .nav-link.active {
+            color: var(--primary-color);
+            background: none;
+        }
+
+        .nav-tabs-auth .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--primary-color);
+        }
+
+        .auth-form {
+            animation: fadeIn 0.3s ease-in;
+            display: none;
+        }
+
+        .auth-form.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-label {
+            font-weight: 500;
+            color: #212529;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .form-control {
+            border: 1.5px solid #dee2e6;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+        }
+
+        .form-control.is-invalid {
+            border-color: var(--danger-color);
+        }
+
+        .form-control.is-invalid:focus {
+            box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+        }
+
+        .invalid-feedback {
+            display: block;
+            color: var(--danger-color);
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .btn-auth {
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            border-radius: 8px;
+            border: none;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .btn-login {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-login:hover:not(:disabled) {
+            background: #0b5ed7;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(13, 110, 253, 0.3);
+        }
+
+        .btn-register {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .btn-register:hover:not(:disabled) {
+            background: #157347;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(25, 135, 84, 0.3);
+        }
+
+        .btn-auth:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .alert-message {
+            border-radius: 8px;
+            border: none;
+            margin-top: 1rem;
+            padding: 0.875rem 1rem;
+            font-size: 0.9rem;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .alert-success {
+            background-color: #d1e7dd;
+            color: #0f5132;
+            border-left: 4px solid var(--success-color);
+        }
+
+        .alert-danger {
+            background-color: #f8d7da;
+            color: #842029;
+            border-left: 4px solid var(--danger-color);
+        }
+
+        .alert-info {
+            background-color: #cfe2ff;
+            color: #084298;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .loading-spinner {
+            display: none;
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .btn-auth.loading .loading-spinner {
+            display: inline-block;
+        }
+
+        .btn-auth.loading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .footer-hint {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: 0.875rem;
+            color: #6c757d;
+        }
+
+        .password-toggle {
+            cursor: pointer;
+            color: #6c757d;
+            position: absolute;
+            right: 1rem;
+            top: 2.75rem;
+            user-select: none;
+        }
+
+        .password-toggle:hover {
+            color: var(--primary-color);
+        }
+
+        .input-group-password {
+            position: relative;
+        }
+
+        /* Responsive */
+        @media (max-width: 576px) {
+            .auth-wrapper {
+                padding: 0.5rem;
+            }
+
+            .auth-header {
+                padding: 1.5rem 1rem;
+            }
+
+            .auth-logo {
+                font-size: 2rem;
+            }
+
+            .auth-title {
+                font-size: 1.5rem;
+            }
+
+            .nav-tabs-auth {
+                padding: 0 1rem;
+            }
+
+            .nav-tabs-auth .nav-link {
+                font-size: 0.9rem;
+                padding: 0.75rem 0;
+            }
+        }
     </style>
 </head>
 <body>
 
-<div class="container auth-container">
-    <h1 class="text-center mb-4">🛡️ Cartagena Segura</h1>
-    <div class="card shadow-sm">
-        <div class="card-header text-center bg-primary text-white">
-            <ul class="nav nav-pills card-header-pills">
-                <li class="nav-item flex-fill">
-                    <a class="nav-link active" id="login-tab-btn" href="#" onclick="showForm('login')">Iniciar Sesión</a>
-                </li>
-                <li class="nav-item flex-fill">
-                    <a class="nav-link" id="register-tab-btn" href="#" onclick="showForm('register')">Registrarse</a>
-                </li>
-            </ul>
+<div class="auth-wrapper">
+    <div class="auth-card card">
+        <!-- Header -->
+        <div class="auth-header">
+            <div class="auth-logo">🛡️</div>
+            <h1 class="auth-title">Cartagena Segura</h1>
+            <p class="auth-subtitle">Sistema de Gestión de Incidentes</p>
         </div>
-        <div class="card-body">
-            <form id="loginForm" class="auth-form">
-                <h5 class="card-title mb-3">Acceder al Sistema</h5>
-                <div class="mb-3">
-                    <label for="loginUsername" class="form-label">Usuario</label>
-                    <input type="text" class="form-control" id="loginUsername" required>
+
+        <!-- Tabs Navigation -->
+        <div class="nav-tabs-auth">
+            <button
+                    type="button"
+                    class="nav-link active"
+                    id="login-tab-btn"
+                    onclick="switchAuthTab('login')"
+                    aria-selected="true">
+                Iniciar Sesión
+            </button>
+            <button
+                    type="button"
+                    class="nav-link"
+                    id="register-tab-btn"
+                    onclick="switchAuthTab('register')"
+                    aria-selected="false">
+                Registrarse
+            </button>
+        </div>
+
+        <!-- Form Body -->
+        <div class="card-body p-4">
+            <!-- Login Form -->
+            <form id="loginForm" class="auth-form active">
+                <h2 class="h5 mb-4">Acceder al Sistema</h2>
+
+                <div class="form-group">
+                    <label for="loginUsername" class="form-label">
+                        👤 Usuario
+                    </label>
+                    <input
+                            type="text"
+                            class="form-control"
+                            id="loginUsername"
+                            placeholder="Ingresa tu usuario"
+                            required
+                            minlength="3"
+                            maxlength="50">
                 </div>
-                <div class="mb-3">
-                    <label for="loginPassword" class="form-label">Contraseña</label>
-                    <input type="password" class="form-control" id="loginPassword" required>
+
+                <div class="form-group">
+                    <label for="loginPassword" class="form-label">
+                        🔐 Contraseña
+                    </label>
+                    <div class="input-group-password">
+                        <input
+                                type="password"
+                                class="form-control"
+                                id="loginPassword"
+                                placeholder="Ingresa tu contraseña"
+                                required
+                                minlength="6"
+                                maxlength="100">
+                        <span class="password-toggle" onclick="togglePasswordVisibility('loginPassword')">👁️</span>
+                    </div>
                 </div>
-                <button type="submit" class="btn btn-primary w-100">Login</button>
-                <div id="loginMessage" class="mt-3 text-danger text-center"></div>
+
+                <button
+                        type="submit"
+                        class="btn btn-auth btn-login"
+                        id="loginBtn">
+                    <span class="loading-spinner"></span>
+                    Iniciar Sesión
+                </button>
+
+                <div id="loginMessage" role="alert"></div>
             </form>
 
-            <form id="registerForm" class="auth-form" style="display: none;">
-                <h5 class="card-title mb-3">Crear Cuenta</h5>
-                <div class="mb-3">
-                    <label for="registerUsername" class="form-label">Usuario</label>
-                    <input type="text" class="form-control" id="registerUsername" required>
+            <!-- Register Form -->
+            <form id="registerForm" class="auth-form">
+                <h2 class="h5 mb-4">Crear Nueva Cuenta</h2>
+
+                <div class="form-group">
+                    <label for="registerUsername" class="form-label">
+                        👤 Usuario
+                    </label>
+                    <input
+                            type="text"
+                            class="form-control"
+                            id="registerUsername"
+                            placeholder="Elige un usuario"
+                            required
+                            minlength="3"
+                            maxlength="50">
+                    <small class="text-muted">Mínimo 3 caracteres</small>
                 </div>
-                <div class="mb-3">
-                    <label for="registerPassword" class="form-label">Contraseña</label>
-                    <input type="password" class="form-control" id="registerPassword" required>
+
+                <div class="form-group">
+                    <label for="registerPassword" class="form-label">
+                        🔐 Contraseña
+                    </label>
+                    <div class="input-group-password">
+                        <input
+                                type="password"
+                                class="form-control"
+                                id="registerPassword"
+                                placeholder="Crea una contraseña segura"
+                                required
+                                minlength="6"
+                                maxlength="100">
+                        <span class="password-toggle" onclick="togglePasswordVisibility('registerPassword')">👁️</span>
+                    </div>
+                    <small class="text-muted">Mínimo 6 caracteres</small>
                 </div>
-                <button type="submit" class="btn btn-success w-100">Registrar</button>
-                <div id="registerMessage" class="mt-3 text-success text-center"></div>
+
+                <button
+                        type="submit"
+                        class="btn btn-auth btn-register"
+                        id="registerBtn">
+                    <span class="loading-spinner"></span>
+                    Registrarse
+                </button>
+
+                <div id="registerMessage" role="alert"></div>
             </form>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer-hint p-3">
+            <p class="mb-0">¿Problemas? Contacta con soporte</p>
         </div>
     </div>
 </div>
 
-
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="js/app.js"></script>
+
 <script>
-    // Lógica simple para cambiar entre formularios
-    function showForm(type) {
-        document.getElementById('loginForm').style.display = type === 'login' ? 'block' : 'none';
-        document.getElementById('registerForm').style.display = type === 'register' ? 'block' : 'none';
-        document.getElementById('login-tab-btn').classList.toggle('active', type === 'login');
-        document.getElementById('register-tab-btn').classList.toggle('active', type === 'register');
+    // Funciones globales para auth.html
+    function switchAuthTab(tab) {
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        const loginTab = document.getElementById('login-tab-btn');
+        const registerTab = document.getElementById('register-tab-btn');
+
+        const isLogin = tab === 'login';
+
+        // Mostrar/ocultar formularios
+        if (isLogin) {
+            loginForm.classList.add('active');
+            registerForm.classList.remove('active');
+        } else {
+            loginForm.classList.remove('active');
+            registerForm.classList.add('active');
+        }
+
+        // Actualizar tabs
+        if (isLogin) {
+            loginTab.classList.add('active');
+            registerTab.classList.remove('active');
+            loginTab.setAttribute('aria-selected', 'true');
+            registerTab.setAttribute('aria-selected', 'false');
+        } else {
+            loginTab.classList.remove('active');
+            registerTab.classList.add('active');
+            loginTab.setAttribute('aria-selected', 'false');
+            registerTab.setAttribute('aria-selected', 'true');
+        }
     }
 
-    // Redirigir si ya hay un token (protección básica)
-    if (localStorage.getItem('jwtToken')) {
-        window.location.href = 'home.html';
+    function togglePasswordVisibility(inputId) {
+        const input = document.getElementById(inputId);
+        if (input.type === 'password') {
+            input.type = 'text';
+        } else {
+            input.type = 'password';
+        }
     }
+
+    function setLoadingState(formType, isLoading) {
+        const btn = document.getElementById(`${formType}Btn`);
+        if (!btn) return;
+        btn.disabled = isLoading;
+        btn.classList.toggle('loading', isLoading);
+    }
+
+    function showMessage(formType, message, type) {
+        const messageDiv = document.getElementById(`${formType}Message`);
+        if (!messageDiv) return;
+
+        messageDiv.innerHTML = `<div class="alert-message alert-${type}">${message}</div>`;
+    }
+
+    // Event listeners
+    document.addEventListener('DOMContentLoaded', () => {
+        // Protección: redirigir si ya está autenticado
+        if (localStorage.getItem('jwtToken')) {
+            window.location.href = 'home.html';
+        }
+
+        // Login form submit
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                setLoadingState('login', true);
+
+                const username = document.getElementById('loginUsername').value;
+                const password = document.getElementById('loginPassword').value;
+
+                try {
+                    const response = await fetch('http://localhost:8080/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        localStorage.setItem('jwtToken', data.token);
+                        localStorage.setItem('username', username);
+                        showMessage('login', '✅ ¡Inicio de sesión exitoso!', 'success');
+                        setTimeout(() => {
+                            window.location.href = 'home.html';
+                        }, 500);
+                    } else {
+                        showMessage('login', '❌ ' + (data.error || 'Credenciales inválidas'), 'danger');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showMessage('login', '❌ Error de conexión con el servidor', 'danger');
+                } finally {
+                    setLoadingState('login', false);
+                }
+            });
+        }
+
+        // Register form submit
+        const registerForm = document.getElementById('registerForm');
+        if (registerForm) {
+            registerForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                setLoadingState('register', true);
+
+                const username = document.getElementById('registerUsername').value;
+                const password = document.getElementById('registerPassword').value;
+
+                try {
+                    const response = await fetch('http://localhost:8080/api/auth/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        showMessage('register', '✅ ¡Registro exitoso! Por favor, inicia sesión.', 'success');
+                        registerForm.reset();
+                        setTimeout(() => {
+                            switchAuthTab('login');
+                        }, 1000);
+                    } else {
+                        showMessage('register', '❌ ' + (data.error || 'Error al registrar'), 'danger');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showMessage('register', '❌ Error de conexión con el servidor', 'danger');
+                } finally {
+                    setLoadingState('register', false);
+                }
+            });
+        }
+    });
 </script>
+
 </body>
 </html>
