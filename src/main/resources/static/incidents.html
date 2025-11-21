@@ -78,11 +78,6 @@
             vertical-align: middle;
         }
 
-        .table tbody tr {
-            border-bottom: 1px solid #dee2e6;
-            transition: background-color 0.2s ease;
-        }
-
         .table tbody tr:hover {
             background-color: #f8f9fa;
         }
@@ -93,7 +88,6 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 600;
-            white-space: nowrap;
         }
 
         .status-PENDING {
@@ -109,51 +103,6 @@
         .status-RESOLVED {
             background-color: #d1e7dd;
             color: #0f5132;
-        }
-
-        .btn-action {
-            padding: 0.4rem 0.75rem;
-            font-size: 0.85rem;
-            border-radius: 6px;
-            transition: all 0.2s ease;
-        }
-
-        .btn-action:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        .tab-navigation {
-            background: white;
-            border-bottom: 2px solid #dee2e6;
-            margin-bottom: 2rem;
-            border-radius: 8px 8px 0 0;
-            padding: 0 1.5rem;
-        }
-
-        .tab-navigation .nav-link {
-            color: #6c757d;
-            font-weight: 500;
-            padding: 1rem 0;
-            border-bottom: 3px solid transparent;
-            transition: all 0.2s ease;
-            position: relative;
-        }
-
-        .tab-navigation .nav-link:hover {
-            color: var(--primary);
-        }
-
-        .tab-navigation .nav-link.active {
-            color: var(--primary);
-            border-bottom-color: var(--primary);
-            background: none;
         }
 
         .form-section {
@@ -197,6 +146,12 @@
             margin-top: 0.25rem;
         }
 
+        .btn-group-custom {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
         .btn-submit {
             padding: 0.75rem 2rem;
             font-weight: 600;
@@ -205,9 +160,69 @@
             transition: all 0.2s ease;
         }
 
-        .btn-submit:hover {
+        .btn-submit:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .location-input-group {
+            position: relative;
+        }
+
+        .btn-geo {
+            position: absolute;
+            right: 0.5rem;
+            top: 2.5rem;
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            border-radius: 6px;
+            background: var(--info);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            z-index: 10;
+        }
+
+        .btn-geo:hover {
+            background: #0cb4ce;
+            transform: scale(1.05);
+        }
+
+        .btn-geo:active {
+            transform: scale(0.95);
+        }
+
+        .btn-geo.loading {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .nav-tabs-custom {
+            background: white;
+            border-bottom: 2px solid #dee2e6;
+            margin-bottom: 2rem;
+            border-radius: 8px 8px 0 0;
+            padding: 0 1.5rem;
+        }
+
+        .nav-tabs-custom .nav-link {
+            color: #6c757d;
+            font-weight: 500;
+            padding: 1rem 0;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .nav-tabs-custom .nav-link:hover {
+            color: var(--primary);
+        }
+
+        .nav-tabs-custom .nav-link.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            background: none;
         }
 
         .empty-state {
@@ -232,59 +247,31 @@
             filter: brightness(0) invert(1);
         }
 
-        .refresh-btn {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .spinner-mini {
-            display: inline-block;
-            width: 1rem;
-            height: 1rem;
-            border: 2px solid #f3f3f3;
-            border-top: 2px solid var(--primary);
-            border-radius: 50%;
-            animation: spin-mini 0.8s linear infinite;
-        }
-
-        @keyframes spin-mini {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .alert-container {
-            margin-bottom: 1rem;
-        }
-
         @media (max-width: 768px) {
-            .action-buttons {
+            .btn-group-custom {
                 flex-direction: column;
             }
 
-            .btn-action {
+            .btn-submit {
                 width: 100%;
                 text-align: center;
             }
 
+            .btn-geo {
+                position: static;
+                margin-top: 0.5rem;
+                width: 100%;
+            }
+
             .table {
                 font-size: 0.85rem;
-            }
-
-            .tab-navigation {
-                padding: 0;
-            }
-
-            .tab-navigation .nav-link {
-                padding: 0.75rem;
-                font-size: 0.9rem;
             }
         }
     </style>
 </head>
 <body>
 
-<!-- Navbar inyectado por JS -->
+<!-- Navbar -->
 <div id="navbar-container"></div>
 
 <!-- Page Header -->
@@ -297,10 +284,10 @@
 
 <div class="container my-5">
     <!-- Alert Container -->
-    <div id="alertContainer" class="alert-container"></div>
+    <div id="alertContainer" class="alert-container mb-3"></div>
 
     <!-- Tabs Navigation -->
-    <ul class="nav nav-tabs tab-navigation" id="incidentTabs" role="tablist">
+    <ul class="nav nav-tabs nav-tabs-custom" id="incidentTabs" role="tablist">
         <li class="nav-item" role="presentation">
             <button
                     class="nav-link active"
@@ -308,9 +295,7 @@
                     data-bs-toggle="tab"
                     data-bs-target="#list-pane"
                     type="button"
-                    role="tab"
-                    aria-controls="list-pane"
-                    aria-selected="true">
+                    role="tab">
                 📑 Listado de Incidentes
             </button>
         </li>
@@ -321,9 +306,7 @@
                     data-bs-toggle="tab"
                     data-bs-target="#create-pane"
                     type="button"
-                    role="tab"
-                    aria-controls="create-pane"
-                    aria-selected="false">
+                    role="tab">
                 ➕ Reportar Nuevo
             </button>
         </li>
@@ -331,13 +314,13 @@
 
     <div class="tab-content" id="incidentTabsContent">
         <!-- LIST TAB -->
-        <div class="tab-pane fade show active" id="list-pane" role="tabpanel" aria-labelledby="list-tab">
+        <div class="tab-pane fade show active" id="list-pane" role="tabpanel">
             <!-- Filter Section -->
             <div class="filter-section">
                 <div class="row align-items-end">
                     <div class="col-md-6">
                         <label for="statusFilter" class="form-label">🔍 Filtrar por Estado</label>
-                        <select class="form-select" id="statusFilter" aria-label="Filtrar incidentes por estado">
+                        <select class="form-select" id="statusFilter">
                             <option value="ALL">Todos los Estados</option>
                             <option value="PENDING">⏳ Pendiente</option>
                             <option value="IN_PROGRESS">🔄 En Progreso</option>
@@ -345,8 +328,7 @@
                         </select>
                     </div>
                     <div class="col-md-6 text-end">
-                        <button class="btn btn-sm btn-outline-primary refresh-btn" id="refreshBtn" onclick="IncidentManager.loadIncidents()">
-                            <span class="spinner-mini" id="refreshSpinner" style="display: none;"></span>
+                        <button class="btn btn-sm btn-outline-primary" id="refreshBtn" onclick="IncidentManager.loadIncidents()">
                             🔄 Recargar Lista
                         </button>
                     </div>
@@ -356,7 +338,7 @@
             <!-- Table -->
             <div class="table-wrapper">
                 <div class="table-responsive">
-                    <table class="table table-hover" id="incidentsTable">
+                    <table class="table table-hover">
                         <thead>
                         <tr>
                             <th>ID</th>
@@ -381,7 +363,7 @@
         </div>
 
         <!-- CREATE TAB -->
-        <div class="tab-pane fade" id="create-pane" role="tabpanel" aria-labelledby="create-tab">
+        <div class="tab-pane fade" id="create-pane" role="tabpanel">
             <div class="form-section">
                 <h3>📝 Reportar Nuevo Incidente</h3>
                 <form id="createIncidentForm" novalidate>
@@ -395,7 +377,6 @@
                                         id="type"
                                         placeholder="Ej: Robo, Inundación, Accidente"
                                         required
-                                        aria-required="true"
                                         minlength="3"
                                         maxlength="50">
                                 <div class="form-text">Describe brevemente el tipo de incidente</div>
@@ -403,16 +384,24 @@
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="location" class="form-label">Ubicación (Lat, Lon)</label>
-                                <input
-                                        type="text"
-                                        class="form-control"
-                                        id="location"
-                                        placeholder="10.3997,-75.5144"
-                                        required
-                                        aria-required="true"
-                                        pattern="^-?\d+\.?\d*,-?\d+\.?\d*$">
-                                <div class="form-text">Formato: Latitud,Longitud (para el mapa)</div>
+                                <label for="location" class="form-label">📍 Ubicación (Lat, Lon)</label>
+                                <div class="location-input-group">
+                                    <input
+                                            type="text"
+                                            class="form-control"
+                                            id="location"
+                                            placeholder="10.3997,-75.5144"
+                                            pattern="^-?\d+\.?\d*,-?\d+\.?\d*$">
+                                    <button
+                                            type="button"
+                                            class="btn-geo"
+                                            id="geoBtn"
+                                            title="Obtener ubicación actual"
+                                            onclick="requestUserLocation()">
+                                        📍 Detectar
+                                    </button>
+                                </div>
+                                <div class="form-text">Formato: Latitud,Longitud o haz click en "Detectar"</div>
                             </div>
                         </div>
                     </div>
@@ -425,15 +414,13 @@
                                 rows="4"
                                 placeholder="Proporciona detalles completos del incidente..."
                                 required
-                                aria-required="true"
                                 minlength="10"
                                 maxlength="500"></textarea>
                         <div class="form-text">Mínimo 10 caracteres, máximo 500</div>
                     </div>
 
-                    <div class="d-flex gap-2">
+                    <div class="btn-group-custom">
                         <button type="submit" class="btn btn-submit btn-primary" id="submitBtn">
-                            <span class="spinner-mini" id="submitSpinner" style="display: none;"></span>
                             ✅ Crear Incidente
                         </button>
                         <button type="reset" class="btn btn-submit btn-outline-secondary">
@@ -461,7 +448,7 @@
                 </div>
                 <div class="form-group">
                     <label for="newStatus" class="form-label">Nuevo Estado</label>
-                    <select class="form-select" id="newStatus" aria-label="Selecciona el nuevo estado">
+                    <select class="form-select" id="newStatus">
                         <option value="">Seleccionar estado...</option>
                         <option value="PENDING">⏳ Pendiente</option>
                         <option value="IN_PROGRESS">🔄 En Progreso</option>
@@ -481,77 +468,69 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="js/app.js"></script>
+<script src="js/geolocation.js"></script>
 
 <script>
-    // UI Manager específico para incidents.html
-    class IncidentsUI {
-        static showAlert(message, type = 'info') {
-            const container = document.getElementById('alertContainer');
-            const classMap = {
-                'success': 'alert-success',
-                'error': 'alert-danger',
-                'warning': 'alert-warning',
-                'info': 'alert-info'
-            };
+    // Funciones globales para HTML
+    function requestUserLocation() {
+        const geoBtn = document.getElementById('geoBtn');
+        const locationInput = document.getElementById('location');
 
-            const html = `
-                <div class="alert ${classMap[type]} alert-dismissible fade show" role="alert">
-                    ${message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>`;
+        geoBtn.classList.add('loading');
+        geoBtn.disabled = true;
+        geoBtn.textContent = '⏳ Detectando...';
 
-            container.innerHTML = html;
-            setTimeout(() => { container.innerHTML = ''; }, 5000);
-        }
-
-        static setLoading(elementId, isLoading) {
-            const btn = document.getElementById(elementId);
-            if (!btn) return;
-
-            const spinner = elementId === 'refreshBtn'
-                ? document.getElementById('refreshSpinner')
-                : document.getElementById('submitSpinner');
-
-            btn.disabled = isLoading;
-            if (spinner) spinner.style.display = isLoading ? 'inline-block' : 'none';
-        }
-
-        static openStatusModal(id, currentStatus) {
-            document.getElementById('modalIncidentId').textContent = id;
-            document.getElementById('newStatus').value = currentStatus;
-            new bootstrap.Modal(document.getElementById('statusModal')).show();
-        }
-
-        static updateStatusBtn(newStatus) {
-            const modal = bootstrap.Modal.getInstance(document.getElementById('statusModal'));
-            if (modal) modal.hide();
-            IncidentManager.currentIncidentId = document.getElementById('modalIncidentId').textContent;
-            IncidentManager.updateStatus(newStatus);
-        }
+        GeolocationManager.requestLocationWithUI()
+            .then(coords => {
+                locationInput.value = coords;
+                UIHelper.showToast('✅ Ubicación detectada correctamente', 'success');
+                Logger.success('Ubicación ingresada: ' + coords);
+            })
+            .catch(error => {
+                UIHelper.showToast(`⚠️ ${error.message}`, 'warning');
+                Logger.warn('Error en geolocalización:', error);
+            })
+            .finally(() => {
+                geoBtn.classList.remove('loading');
+                geoBtn.disabled = false;
+                geoBtn.textContent = '📍 Detectar';
+            });
     }
 
-    // Event Listeners
+    // Event listeners
     document.addEventListener('DOMContentLoaded', () => {
-        document.getElementById('statusFilter')?.addEventListener('change', (e) => {
-            IncidentManager.loadIncidents(e.target.value);
-        });
-
-        document.getElementById('createIncidentForm')?.addEventListener('submit', (e) => {
-            IncidentsUI.setLoading('submitBtn', true);
-            IncidentManager.createIncident(e).finally(() => {
-                IncidentsUI.setLoading('submitBtn', false);
-            });
-        });
-
-        document.getElementById('updateStatusBtn')?.addEventListener('click', () => {
-            IncidentsUI.updateStatusBtn(document.getElementById('newStatus').value);
-        });
-
+        // Cargar incidentes
         IncidentManager.loadIncidents();
+
+        // Form submissions
+        const createForm = document.getElementById('createIncidentForm');
+        if (createForm) {
+            createForm.addEventListener('submit', (e) => {
+                IncidentManager.createIncident(e);
+            });
+        }
+
+        // Filter
+        const statusFilter = document.getElementById('statusFilter');
+        if (statusFilter) {
+            statusFilter.addEventListener('change', (e) => {
+                IncidentManager.loadIncidents(e.target.value);
+            });
+        }
+
+        // Update status
+        const updateStatusBtn = document.getElementById('updateStatusBtn');
+        if (updateStatusBtn) {
+            updateStatusBtn.addEventListener('click', () => {
+                IncidentManager.updateStatus();
+            });
+        }
     });
 
-    // Exponer funciones globales para onclick
-    window.openStatusModal = (id, status) => IncidentsUI.openStatusModal(id, status);
+    // Funciones globales para onclick
+    window.openStatusModal = (id, status) => {
+        IncidentManager.openStatusModal(id, status);
+    };
 </script>
 
 </body>

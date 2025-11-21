@@ -42,29 +42,45 @@ public class SecurityConfig {
 
                 // Configurar reglas de acceso
                 .authorizeHttpRequests(auth -> auth
-                        // Endpoints públicos
+                        // PÁGINAS PÚBLICAS (acceso sin autenticación)
                         .requestMatchers(
-                                "/api/auth/**",                    // login/register
-                                "/api/users/register",             // registro público
-                                "/",                               // raíz
-                                "/*.html",                         // <--- CORRECCIÓN CLAVE: Permite acceso a auth.html, home.html, etc.
-                                "/static/**",                      // archivos estáticos (CSS, JS, etc)
-                                "/**.js",                          // scripts
-                                "/**.css",                         // estilos
-                                "/**.png", "/**.jpg", "/**.gif",  // imágenes
-                                "/**.woff", "/**.woff2",          // fuentes
-                                "/favicon.ico"                     // favicon
+                                "/",
+                                "/index.html",
+                                "/home.html",           // Home público
+                                "/auth.html",           // Login/Register
+
+                                // Recursos estáticos
+                                "/css/**",
+                                "/js/**",
+                                "/assets/**",
+                                "/**.css",
+                                "/**.js",
+                                "/**.html",
+                                "/**.png", "/**.jpg", "/**.jpeg", "/**.gif",
+                                "/**.ico",
+                                "/**.svg",
+                                "/**.woff", "/**.woff2", "/**.ttf",
+                                "/favicon.ico",
+
+                                // APIs públicas
+                                "/api/auth/**",         // login/register
+                                "/api/users/register",  // registro público
+                                "/api/ml/**"           // ML endpoints (públicos por ahora)
                         ).permitAll()
 
-                        // Endpoints que requieren autenticación
+                        // PÁGINAS PROTEGIDAS (requieren autenticación)
+                        .requestMatchers(
+                                "/incidents.html",      // Gestión de incidentes
+                                "/map.html",           // Mapa de incidentes
+                                "/ml-dashboard.html",   // Dashboard ML
+                                "/profile.html"        // Perfil de usuario
+                        ).authenticated()
+
+                        // APIs PROTEGIDAS (requieren autenticación)
                         .requestMatchers("/api/incidents/**").authenticated()
                         .requestMatchers("/api/users/**").authenticated()
 
-                        // ENDPOINTS ML - CONFIGURACIÓN SEGÚN NECESIDAD
-                        // Por ahora permitir todo ML (ya que el JS del frontend lo usa)
-                        .requestMatchers("/api/ml/**").permitAll()
-
-                        // El resto requiere autenticación
+                        // Cualquier otra cosa requiere autenticación
                         .anyRequest().authenticated()
                 )
 

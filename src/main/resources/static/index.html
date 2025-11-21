@@ -51,18 +51,12 @@
 <div class="loading-container">
     <div class="spinner"></div>
     <h1>🛡️ Cartagena Segura</h1>
-    <p>Redirigiendo...</p>
+    <p>Cargando...</p>
 </div>
 
 <script>
-    // Redirigir según el estado de autenticación
-    const token = localStorage.getItem('jwtToken');
-
-    if (token) {
-        window.location.href = 'home.html';
-    } else {
-        window.location.href = 'auth.html';
-    }
+    // Redirigir siempre al home público
+    window.location.href = 'home.html';
 </script>
 
 </body>

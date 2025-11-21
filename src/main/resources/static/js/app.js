@@ -1,4 +1,4 @@
-// js/app.js - Versión 3.0 - 100% Funcional
+// js/app.js - Versión 4.0 - Con soporte para Home Público
 
 // ====================================================================
 // CONFIGURACIÓN
@@ -71,7 +71,7 @@ class AuthService {
     static logout() {
         this.clear();
         setTimeout(() => {
-            window.location.href = 'auth.html';
+            window.location.href = 'home.html';
         }, 300);
     }
 }
@@ -84,7 +84,7 @@ class APIClient {
     static async request(url, options = {}) {
         const token = AuthService.getToken();
 
-        if (!token && !url.includes('/auth/')) {
+        if (!token && !url.includes('/auth/') && !url.includes('/api/ml/')) {
             Logger.warn('No hay token, redirigiendo a auth');
             AuthService.logout();
             throw new Error('Sesión expirada. Por favor, inicie sesión.');
@@ -296,7 +296,7 @@ class NavbarManager {
                     <div class="collapse navbar-collapse" id="navbarNav">
                         <ul class="navbar-nav me-auto">
                             <li class="nav-item">
-                                <a class="nav-link" href="home.html">📊 Home</a>
+                                <a class="nav-link" href="home.html">🏠 Inicio</a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" href="incidents.html">📋 Incidentes</a>
@@ -312,7 +312,7 @@ class NavbarManager {
                             </li>
                         </ul>
                         <span class="navbar-text me-3">
-                            Usuario: <strong>${username}</strong>
+                            👋 Hola, <strong>${username}</strong>
                         </span>
                         <button class="btn btn-outline-danger btn-sm" onclick="AuthService.logout()">
                             🚪 Salir
@@ -338,6 +338,139 @@ class NavbarManager {
             if (AuthService.isAuthenticated()) {
                 tokenEl.className = 'status-badge status-valid';
             }
+        }
+    }
+}
+
+// ====================================================================
+// NAVBAR PÚBLICO
+// ====================================================================
+
+class PublicNavbar {
+    static inject() {
+        const container = document.getElementById('navbar-container');
+        if (!container) return;
+
+        const token = AuthService.getToken();
+        const username = AuthService.getUsername();
+
+        if (token) {
+            // Navbar para usuarios autenticados
+            container.innerHTML = `
+                <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+                    <div class="container-fluid px-4">
+                        <a class="navbar-brand fw-bold" href="home.html">🛡️ Cartagena Segura</a>
+                        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                            <span class="navbar-toggler-icon"></span>
+                        </button>
+                        <div class="collapse navbar-collapse" id="navbarNav">
+                            <ul class="navbar-nav me-auto">
+                                <li class="nav-item">
+                                    <a class="nav-link" href="home.html">🏠 Inicio</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="incidents.html">📋 Incidentes</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="map.html">🗺️ Mapa</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="ml.html">🤖 ML/WEKA</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="profile.html">👤 Perfil</a>
+                                </li>
+                            </ul>
+                            <span class="navbar-text me-3">
+                                👋 Hola, <strong>${username}</strong>
+                            </span>
+                            <button class="btn btn-outline-danger btn-sm" onclick="AuthService.logout()">
+                                🚪 Salir
+                            </button>
+                        </div>
+                    </div>
+                </nav>
+            `;
+        } else {
+            // Navbar para usuarios no autenticados (público)
+            container.innerHTML = `
+                <nav class="navbar navbar-expand-lg navbar-dark public-navbar">
+                    <div class="container">
+                        <a class="navbar-brand fw-bold" href="home.html">
+                            🛡️ Cartagena Segura
+                        </a>
+                        <div class="navbar-nav ms-auto">
+                            <a class="nav-link" href="auth.html?tab=login">
+                                🔐 Iniciar Sesión
+                            </a>
+                        </div>
+                    </div>
+                </nav>
+            `;
+        }
+
+        Logger.success('Navbar público inyectado correctamente');
+    }
+}
+
+// ====================================================================
+// NAVEGACIÓN PÚBLICA/PRIVADA
+// ====================================================================
+
+class NavigationManager {
+    static redirectBasedOnAuth() {
+        const token = AuthService.getToken();
+        const currentPage = window.location.pathname.split('/').pop();
+
+        // Páginas públicas (siempre accesibles)
+        const publicPages = ['home.html', 'auth.html', 'index.html'];
+
+        // Páginas protegidas (requieren autenticación)
+        const protectedPages = ['incidents.html', 'map.html', 'ml.html', 'profile.html'];
+
+        Logger.info(`Navegación - Página: ${currentPage}, Autenticado: ${!!token}`);
+
+        // Si está en página protegida sin autenticación → redirigir a home público
+        if (!token && protectedPages.includes(currentPage)) {
+            Logger.warn('Acceso no autorizado a página protegida, redirigiendo a home público');
+            UIHelper.redirectTo('home.html');
+            return;
+        }
+
+        // Si está autenticado y en página pública (excepto home) → redirigir a incidents
+        if (token && publicPages.includes(currentPage) && currentPage !== 'home.html') {
+            Logger.info('Usuario autenticado en página pública, redirigiendo a incidents');
+            UIHelper.redirectTo('incidents.html');
+            return;
+        }
+
+        // Si está en auth.html y ya está autenticado → redirigir a incidents
+        if (token && currentPage === 'auth.html') {
+            Logger.info('Usuario autenticado en auth, redirigiendo a incidents');
+            UIHelper.redirectTo('incidents.html');
+            return;
+        }
+    }
+
+    static setupPublicHome() {
+        // Verificar si estamos en el home público
+        if (!UIHelper.isPage('home.html')) return;
+
+        const token = AuthService.getToken();
+        const loginBtn = document.getElementById('loginBtn');
+        const registerBtn = document.getElementById('registerBtn');
+        const dashboardBtn = document.getElementById('dashboardBtn');
+
+        if (token) {
+            // Usuario autenticado - mostrar botón de dashboard
+            if (loginBtn) loginBtn.style.display = 'none';
+            if (registerBtn) registerBtn.style.display = 'none';
+            if (dashboardBtn) dashboardBtn.style.display = 'inline-flex';
+        } else {
+            // Usuario no autenticado - mostrar botones de login/register
+            if (loginBtn) loginBtn.style.display = 'inline-flex';
+            if (registerBtn) registerBtn.style.display = 'inline-flex';
+            if (dashboardBtn) dashboardBtn.style.display = 'none';
         }
     }
 }
@@ -908,39 +1041,78 @@ class MLManager {
 }
 
 // ====================================================================
-// PAGE INITIALIZER
+// PAGE INITIALIZER - ACTUALIZADO
 // ====================================================================
 
 class PageInitializer {
     static checkAuthAndLoad() {
+        Logger.info(`Inicializando página: ${window.location.pathname}`);
+
+        // Primero verificar navegación basada en autenticación
+        NavigationManager.redirectBasedOnAuth();
+
         const isAuth = AuthService.isAuthenticated();
-        const isAuthPage = UIHelper.isPage('auth.html');
-        const isIndexPage = UIHelper.isPage('index.html');
+        const currentPage = window.location.pathname.split('/').pop();
 
-        Logger.info(`Inicializando página - Autenticado: ${isAuth}`);
-
-        // Si no está autenticado y no es página de auth
-        if (!isAuth && !isAuthPage && !isIndexPage) {
-            Logger.warn('No autenticado, redirigiendo a auth');
-            UIHelper.redirectTo('auth.html');
-            return;
-        }
-
-        // Si está autenticado, inyectar navbar
-        if (isAuth) {
+        // Configurar navbar según tipo de página
+        if (currentPage === 'home.html') {
+            // Home público - usar navbar público
+            PublicNavbar.inject();
+            NavigationManager.setupPublicHome();
+        } else if (isAuth && currentPage !== 'auth.html') {
+            // Páginas protegidas - usar navbar completo
             NavbarManager.inject();
         }
 
-        // Lógica por página
-        if (UIHelper.isPage('incidents.html')) {
-            IncidentManager.loadIncidents();
-        } else if (UIHelper.isPage('map.html')) {
-            MapManager.loadIncidentsForMap();
-        } else if (UIHelper.isPage('ml.html')) {
-            MLManager.initialize();
-        } else if (UIHelper.isPage('profile.html')) {
-            NavbarManager.setupProfile();
+        // Lógica de inicialización por página
+        this.initializePageLogic();
+    }
+
+    static initializePageLogic() {
+        const currentPage = window.location.pathname.split('/').pop();
+
+        switch (currentPage) {
+            case 'incidents.html':
+                IncidentManager.loadIncidents();
+                break;
+            case 'map.html':
+                MapManager.loadIncidentsForMap();
+                break;
+            case 'ml.html':
+                MLManager.initialize();
+                break;
+            case 'profile.html':
+                NavbarManager.setupProfile();
+                break;
+            case 'auth.html':
+                this.setupAuthPage();
+                break;
+            case 'home.html':
+                this.setupHomePage();
+                break;
+            default:
+                Logger.info(`Página ${currentPage} - Sin inicialización específica`);
         }
+    }
+
+    static setupAuthPage() {
+        // Si ya está autenticado, redirigir
+        if (AuthService.isAuthenticated()) {
+            UIHelper.redirectTo('incidents.html');
+            return;
+        }
+
+        // Manejar parámetros de URL para tabs
+        const urlParams = new URLSearchParams(window.location.search);
+        const tab = urlParams.get('tab');
+        if (tab === 'register') {
+            switchAuthTab('register');
+        }
+    }
+
+    static setupHomePage() {
+        // Lógica específica del home público
+        Logger.info('Home público inicializado');
     }
 }
 
@@ -981,7 +1153,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         Logger.success('Login exitoso');
                         UIHelper.showToast('✅ ¡Bienvenido!', 'success');
                         setTimeout(() => {
-                            UIHelper.redirectTo('home.html');
+                            UIHelper.redirectTo('incidents.html');
                         }, 500);
                     } else {
                         UIHelper.showAlert('loginMessage', `❌ ${data.error || 'Credenciales inválidas'}`, 'error');
@@ -1082,6 +1254,53 @@ document.addEventListener('DOMContentLoaded', () => {
 // FUNCIONES GLOBALES (para compatibilidad con onclick)
 // ====================================================================
 
+// Para auth.html
+function switchAuthTab(tab) {
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const loginTab = document.getElementById('login-tab-btn');
+    const registerTab = document.getElementById('register-tab-btn');
+
+    const isLogin = tab === 'login';
+
+    // Mostrar/ocultar formularios
+    if (isLogin) {
+        loginForm.classList.add('active');
+        registerForm.classList.remove('active');
+    } else {
+        loginForm.classList.remove('active');
+        registerForm.classList.add('active');
+    }
+
+    // Actualizar tabs
+    if (isLogin) {
+        loginTab.classList.add('active');
+        registerTab.classList.remove('active');
+        loginTab.setAttribute('aria-selected', 'true');
+        registerTab.setAttribute('aria-selected', 'false');
+    } else {
+        loginTab.classList.remove('active');
+        registerTab.classList.add('active');
+        loginTab.setAttribute('aria-selected', 'false');
+        registerTab.setAttribute('aria-selected', 'true');
+    }
+}
+
+function togglePasswordVisibility(inputId) {
+    const input = document.getElementById(inputId);
+    if (input.type === 'password') {
+        input.type = 'text';
+    } else {
+        input.type = 'password';
+    }
+}
+
+// Para ML
 function switchMLTab(tabName) {
     MLManager.switchTab(tabName);
+}
+
+// Para incidentes
+function openStatusModal(id, status) {
+    IncidentManager.openStatusModal(id, status);
 }

@@ -12,6 +12,8 @@ public class Incident {
     private String type;
     private String description;
     private String location;
+    private Double lat;
+    private Double lng;
     private Status status = Status.PENDING;
 
     public enum Status {
@@ -22,12 +24,15 @@ public class Incident {
 
     public Incident() {}
 
-    public Incident(String type, String description, String location, Status status) {
+    public Incident(String type, String description, String location, Double lat, Double lng, Status status) {
         this.type = type;
         this.description = description;
         this.location = location;
+        this.lat = lat;
+        this.lng = lng;
         this.status = status;
     }
+
 
     // Getters y Setters
     public String getId() { return id; }
@@ -41,6 +46,12 @@ public class Incident {
 
     public String getLocation() { return location; }
     public void setLocation(String location) { this.location = location; }
+
+    public Double getLat() { return lat; }
+    public void setLat(Double lat) { this.lat = lat; }
+
+    public Double getLng() { return lng; }
+    public void setLng(Double lng) { this.lng = lng; }
 
     public Status getStatus() { return status; }
     public void setStatus(Status status) { this.status = status; }
