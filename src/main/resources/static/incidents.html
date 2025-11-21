@@ -10,263 +10,237 @@
     <link rel="stylesheet" href="css/style.css">
 
     <style>
-        :root {
-            --primary: #0d6efd;
-            --success: #198754;
-            --warning: #ffc107;
-            --danger: #dc3545;
-            --info: #0dcaf0;
-        }
+        /* ============================= */
+/* ESTILO PROFESIONAL DASHBOARD  */
+/* ============================= */
 
-        body {
-            background-color: #f8f9fa;
-            padding-top: 60px;
-        }
+:root {
+    --primary: #0d6efd;
+    --primary-dark: #0b5ed7;
+    --success: #198754;
+    --warning: #ffc107;
+    --danger: #dc3545;
+    --info: #0dcaf0;
 
-        .page-header {
-            background: linear-gradient(135deg, var(--primary) 0%, #0b5ed7 100%);
-            color: white;
-            padding: 2rem 0;
-            margin-bottom: 2rem;
-            border-radius: 0 0 12px 12px;
-        }
+    --bg-soft: #f5f7fa;
+    --text-dark: #2d3436;
+    --card-shadow: 0 6px 18px rgba(0,0,0,0.06);
+    --transition: all 0.25s ease;
+}
 
-        .page-header h1 {
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-        }
+body {
+    background-color: var(--bg-soft);
+    font-family: "Inter", system-ui, sans-serif;
+    padding-top: 70px;
+}
 
-        .filter-section {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            margin-bottom: 2rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-        }
+/* ============================= */
+/* HEADER                        */
+/* ============================= */
 
-        .filter-section .form-label {
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: #495057;
-        }
+.page-header {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    padding: 2.8rem 0;
+    text-shadow: 0 2px 5px rgba(0,0,0,0.25);
+}
 
-        .table-wrapper {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            overflow: hidden;
-        }
+.page-header h1 {
+    font-weight: 800;
+    font-size: 2.4rem;
+}
 
-        .table {
-            margin-bottom: 0;
-        }
+.page-header p {
+    opacity: 0.9;
+    font-size: 1.1rem;
+}
 
-        .table thead {
-            background: #f8f9fa;
-            border-bottom: 2px solid #dee2e6;
-        }
+/* ============================= */
+/* TABS                          */
+/* ============================= */
 
-        .table thead th {
-            font-weight: 600;
-            color: #495057;
-            padding: 1rem;
-            vertical-align: middle;
-        }
+.nav-tabs-custom {
+    background: #fff;
+    border-radius: 12px 12px 0 0;
+    box-shadow: var(--card-shadow);
+}
 
-        .table tbody td {
-            padding: 1rem;
-            vertical-align: middle;
-        }
+.nav-tabs-custom .nav-link {
+    font-weight: 600;
+    padding: 1rem 1.25rem;
+    color: #6c757d;
+    border: none;
+    transition: var(--transition);
+}
 
-        .table tbody tr:hover {
-            background-color: #f8f9fa;
-        }
+.nav-tabs-custom .nav-link.active {
+    color: var(--primary);
+    border-bottom: 3px solid var(--primary);
+}
 
-        .status-badge {
-            display: inline-block;
-            padding: 0.5rem 0.75rem;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
+.nav-tabs-custom .nav-link:hover {
+    color: var(--primary);
+}
 
-        .status-PENDING {
-            background-color: #fff3cd;
-            color: #664d03;
-        }
+/* ============================= */
+/* FILTERS + CARDS               */
+/* ============================= */
 
-        .status-IN_PROGRESS {
-            background-color: #cfe2ff;
-            color: #084298;
-        }
+.filter-section,
+.form-section {
+    background: white;
+    padding: 1.8rem;
+    border-radius: 12px;
+    box-shadow: var(--card-shadow);
+    margin-bottom: 2rem;
+}
 
-        .status-RESOLVED {
-            background-color: #d1e7dd;
-            color: #0f5132;
-        }
+.filter-section label {
+    font-weight: 700;
+    color: var(--text-dark);
+}
 
-        .form-section {
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
+/* ============================= */
+/* TABLE                         */
+/* ============================= */
 
-        .form-section h3 {
-            margin-bottom: 1.5rem;
-            font-weight: 700;
-            color: #212529;
-        }
+.table-wrapper {
+    background: white;
+    border-radius: 12px;
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+}
 
-        .form-group {
-            margin-bottom: 1.25rem;
-        }
+.table thead {
+    background: #eef1f5;
+}
 
-        .form-label {
-            font-weight: 600;
-            color: #495057;
-            margin-bottom: 0.5rem;
-        }
+.table thead th {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: #495057;
+}
 
-        .form-control, .form-select {
-            border: 1.5px solid #dee2e6;
-            border-radius: 6px;
-            padding: 0.75rem 1rem;
-            transition: all 0.2s ease;
-        }
+.table tbody tr {
+    transition: var(--transition);
+}
 
-        .form-control:focus, .form-select:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
-        }
+.table tbody tr:hover {
+    background: #f3f6fa;
+}
 
-        .form-text {
-            font-size: 0.85rem;
-            color: #6c757d;
-            margin-top: 0.25rem;
-        }
+/* ============================= */
+/* BADGES ESTADOS                */
+/* ============================= */
 
-        .btn-group-custom {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
+.status-badge {
+    padding: .45rem .75rem;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.8rem;
+}
 
-        .btn-submit {
-            padding: 0.75rem 2rem;
-            font-weight: 600;
-            border-radius: 6px;
-            border: none;
-            transition: all 0.2s ease;
-        }
+.status-PENDING {
+    background: #fff3cd;
+    color: #866500;
+}
 
-        .btn-submit:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
+.status-IN_PROGRESS {
+    background: #cfe2ff;
+    color: #084298;
+}
 
-        .location-input-group {
-            position: relative;
-        }
+.status-RESOLVED {
+    background: #d1e7dd;
+    color: #0f5132;
+}
 
-        .btn-geo {
-            position: absolute;
-            right: 0.5rem;
-            top: 2.5rem;
-            padding: 0.5rem 1rem;
-            font-size: 0.85rem;
-            border-radius: 6px;
-            background: var(--info);
-            color: white;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            z-index: 10;
-        }
+/* ============================= */
+/* FORMULARIOS                   */
+/* ============================= */
 
-        .btn-geo:hover {
-            background: #0cb4ce;
-            transform: scale(1.05);
-        }
+.form-label {
+    font-weight: 700;
+    color: var(--text-dark);
+}
 
-        .btn-geo:active {
-            transform: scale(0.95);
-        }
+.form-control,
+.form-select {
+    border: 2px solid #e3e6ea;
+    border-radius: 10px;
+    padding: .85rem;
+    transition: var(--transition);
+}
 
-        .btn-geo.loading {
-            opacity: 0.7;
-            cursor: not-allowed;
-        }
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(13,110,253,.12);
+}
 
-        .nav-tabs-custom {
-            background: white;
-            border-bottom: 2px solid #dee2e6;
-            margin-bottom: 2rem;
-            border-radius: 8px 8px 0 0;
-            padding: 0 1.5rem;
-        }
+/* ============================= */
+/* BOTONES                       */
+/* ============================= */
 
-        .nav-tabs-custom .nav-link {
-            color: #6c757d;
-            font-weight: 500;
-            padding: 1rem 0;
-            border-bottom: 3px solid transparent;
-            transition: all 0.2s ease;
-            position: relative;
-        }
+.btn-submit {
+    padding: .85rem 2rem;
+    font-weight: 700;
+    border-radius: 10px;
+    transition: var(--transition);
+}
 
-        .nav-tabs-custom .nav-link:hover {
-            color: var(--primary);
-        }
+.btn-submit:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+}
 
-        .nav-tabs-custom .nav-link.active {
-            color: var(--primary);
-            border-bottom-color: var(--primary);
-            background: none;
-        }
+.btn-outline-secondary:hover {
+    background: #f0f0f0;
+}
 
-        .empty-state {
-            text-align: center;
-            padding: 3rem 1rem;
-            color: #6c757d;
-        }
+/* Geoloc button */
+.btn-geo {
+    margin-top: .5rem;
+    background: var(--info);
+    font-weight: 600;
+    border-radius: 8px;
+}
 
-        .empty-state-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            opacity: 0.5;
-        }
+/* ============================= */
+/* MODAL                         */
+/* ============================= */
 
-        .modal-header {
-            background: linear-gradient(135deg, var(--primary) 0%, #0b5ed7 100%);
-            color: white;
-            border: none;
-        }
+.modal-header {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    border-radius: 8px 8px 0 0;
+}
 
-        .modal-header .btn-close {
-            filter: brightness(0) invert(1);
-        }
+.modal-content {
+    border-radius: 12px;
+    box-shadow: var(--card-shadow);
+}
 
-        @media (max-width: 768px) {
-            .btn-group-custom {
-                flex-direction: column;
-            }
+/* ============================= */
+/* RESPONSIVE                    */
+/* ============================= */
 
-            .btn-submit {
-                width: 100%;
-                text-align: center;
-            }
+@media (max-width: 768px) {
+    .page-header h1 {
+        font-size: 1.8rem;
+    }
 
-            .btn-geo {
-                position: static;
-                margin-top: 0.5rem;
-                width: 100%;
-            }
+    .btn-group-custom {
+        flex-direction: column;
+        gap: .75rem;
+    }
 
-            .table {
-                font-size: 0.85rem;
-            }
-        }
+    .btn-submit {
+        width: 100%;
+    }
+}
+
     </style>
 </head>
 <body>
@@ -345,13 +319,14 @@
                             <th>Tipo</th>
                             <th>Descripción</th>
                             <th>Ubicación</th>
+                            <th>Coordenadas</th>
                             <th>Estado</th>
                             <th class="text-center">Acciones</th>
                         </tr>
                         </thead>
                         <tbody id="incidentTableBody">
                         <tr>
-                            <td colspan="6" class="empty-state">
+                            <td colspan="7" class="empty-state">
                                 <div class="empty-state-icon">📭</div>
                                 <p>Cargando incidentes...</p>
                             </td>
@@ -384,25 +359,64 @@
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="location" class="form-label">📍 Ubicación (Lat, Lon)</label>
-                                <div class="location-input-group">
-                                    <input
-                                            type="text"
-                                            class="form-control"
-                                            id="location"
-                                            placeholder="10.3997,-75.5144"
-                                            pattern="^-?\d+\.?\d*,-?\d+\.?\d*$">
-                                    <button
-                                            type="button"
-                                            class="btn-geo"
-                                            id="geoBtn"
-                                            title="Obtener ubicación actual"
-                                            onclick="requestUserLocation()">
-                                        📍 Detectar
-                                    </button>
-                                </div>
-                                <div class="form-text">Formato: Latitud,Longitud o haz click en "Detectar"</div>
+                                <label for="location" class="form-label">📍 Ubicación (Nombre del lugar)</label>
+                                <input
+                                        type="text"
+                                        class="form-control"
+                                        id="location"
+                                        placeholder="Ej: Centro histórico, Parque Bolívar"
+                                        required
+                                        minlength="3"
+                                        maxlength="100">
+                                <div class="form-text">Nombre descriptivo de la ubicación</div>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="lat" class="form-label">📍 Latitud</label>
+                                <input
+                                        type="number"
+                                        class="form-control"
+                                        id="lat"
+                                        placeholder="10.3997"
+                                        step="0.0001"
+                                        required
+                                        min="-90"
+                                        max="90">
+                                <div class="form-text">Ej: 10.3997 (rango: -90 a 90)</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="lng" class="form-label">📍 Longitud</label>
+                                <input
+                                        type="number"
+                                        class="form-control"
+                                        id="lng"
+                                        placeholder="-75.5144"
+                                        step="0.0001"
+                                        required
+                                        min="-180"
+                                        max="180">
+                                <div class="form-text">Ej: -75.5144 (rango: -180 a 180)</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <button
+                                type="button"
+                                class="btn-geo"
+                                id="geoBtn"
+                                onclick="requestUserLocation()">
+                            📍 Detectar mi Ubicación
+                        </button>
+                        <div id="geoStatus" class="coordinate-display" style="display: none;">
+                            <strong>Ubicación detectada:</strong><br>
+                            <span id="geoCoords"></span>
                         </div>
                     </div>
 
@@ -423,7 +437,7 @@
                         <button type="submit" class="btn btn-submit btn-primary" id="submitBtn">
                             ✅ Crear Incidente
                         </button>
-                        <button type="reset" class="btn btn-submit btn-outline-secondary">
+                        <button type="reset" class="btn btn-submit btn-outline-secondary" onclick="clearGeoStatus()">
                             🔄 Limpiar Formulario
                         </button>
                     </div>
@@ -471,20 +485,126 @@
 <script src="js/geolocation.js"></script>
 
 <script>
-    // Funciones globales para HTML
+    // Actualizar IncidentManager para nuevo modelo
+    const IncidentManagerUpdated = {
+        ...IncidentManager,
+
+        renderIncidents(incidents) {
+            const tableBody = document.getElementById('incidentTableBody');
+            if (!tableBody) return;
+
+            if (!incidents || incidents.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            📭 No hay incidentes para mostrar
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tableBody.innerHTML = incidents.map(incident => `
+                <tr>
+                    <td><strong>${incident.id}</strong></td>
+                    <td>${incident.type}</td>
+                    <td>${incident.description}</td>
+                    <td>${incident.location || '—'}</td>
+                    <td>
+                        <small style="font-family: monospace;">
+                            ${incident.lat?.toFixed(4)}, ${incident.lng?.toFixed(4)}
+                        </small>
+                    </td>
+                    <td>
+                        <span class="status-badge status-${incident.status}">
+                            ${incident.status}
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button class="btn btn-info btn-sm" onclick="IncidentManager.openStatusModal('${incident.id}', '${incident.status}')">
+                                ✏️
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="IncidentManager.deleteIncident('${incident.id}')">
+                                🗑️
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        },
+
+        async createIncident(event) {
+            event.preventDefault();
+
+            const type = document.getElementById('type')?.value?.trim();
+            const description = document.getElementById('description')?.value?.trim();
+            const location = document.getElementById('location')?.value?.trim();
+            const lat = parseFloat(document.getElementById('lat')?.value);
+            const lng = parseFloat(document.getElementById('lng')?.value);
+
+            // Validar campos
+            if (!type || !description || !location || isNaN(lat) || isNaN(lng)) {
+                UIHelper.showToast('⚠️ Por favor completa todos los campos correctamente', 'warning');
+                return;
+            }
+
+            if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+                UIHelper.showToast('⚠️ Coordenadas fuera de rango', 'warning');
+                return;
+            }
+
+            const newIncident = {
+                type,
+                description,
+                location,
+                lat,
+                lng
+            };
+
+            try {
+                UIHelper.setButtonLoading('submitBtn', true);
+
+                const result = await APIClient.post(CONFIG.ENDPOINTS.INCIDENTS, newIncident);
+
+                Logger.success('Incidente creado');
+                UIHelper.showToast('✅ Incidente creado exitosamente', 'success');
+
+                document.getElementById('createIncidentForm')?.reset();
+                clearGeoStatus();
+                document.querySelector('[data-bs-target="#list-pane"]')?.click();
+
+                this.loadIncidents();
+            } catch (error) {
+                Logger.error('Error al crear incidente', error);
+                UIHelper.showToast(`❌ ${error.message}`, 'error');
+            } finally {
+                UIHelper.setButtonLoading('submitBtn', false);
+            }
+        }
+    };
+
+    // Reemplazar métodos
+    Object.assign(IncidentManager, IncidentManagerUpdated);
+
+    // Funciones globales
     function requestUserLocation() {
         const geoBtn = document.getElementById('geoBtn');
-        const locationInput = document.getElementById('location');
-
         geoBtn.classList.add('loading');
         geoBtn.disabled = true;
         geoBtn.textContent = '⏳ Detectando...';
 
-        GeolocationManager.requestLocationWithUI()
-            .then(coords => {
-                locationInput.value = coords;
+        GeolocationManager.getCurrentLocation()
+            .then(location => {
+                document.getElementById('lat').value = location.lat.toFixed(4);
+                document.getElementById('lng').value = location.lng.toFixed(4);
+
+                const geoStatus = document.getElementById('geoStatus');
+                document.getElementById('geoCoords').textContent = `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`;
+                geoStatus.style.display = 'block';
+
                 UIHelper.showToast('✅ Ubicación detectada correctamente', 'success');
-                Logger.success('Ubicación ingresada: ' + coords);
+                Logger.success('Ubicación: ' + `${location.lat}, ${location.lng}`);
             })
             .catch(error => {
                 UIHelper.showToast(`⚠️ ${error.message}`, 'warning');
@@ -493,16 +613,18 @@
             .finally(() => {
                 geoBtn.classList.remove('loading');
                 geoBtn.disabled = false;
-                geoBtn.textContent = '📍 Detectar';
+                geoBtn.textContent = '📍 Detectar mi Ubicación';
             });
+    }
+
+    function clearGeoStatus() {
+        document.getElementById('geoStatus').style.display = 'none';
     }
 
     // Event listeners
     document.addEventListener('DOMContentLoaded', () => {
-        // Cargar incidentes
         IncidentManager.loadIncidents();
 
-        // Form submissions
         const createForm = document.getElementById('createIncidentForm');
         if (createForm) {
             createForm.addEventListener('submit', (e) => {
@@ -510,24 +632,14 @@
             });
         }
 
-        // Filter
         const statusFilter = document.getElementById('statusFilter');
         if (statusFilter) {
             statusFilter.addEventListener('change', (e) => {
                 IncidentManager.loadIncidents(e.target.value);
             });
         }
-
-        // Update status
-        const updateStatusBtn = document.getElementById('updateStatusBtn');
-        if (updateStatusBtn) {
-            updateStatusBtn.addEventListener('click', () => {
-                IncidentManager.updateStatus();
-            });
-        }
     });
 
-    // Funciones globales para onclick
     window.openStatusModal = (id, status) => {
         IncidentManager.openStatusModal(id, status);
     };
