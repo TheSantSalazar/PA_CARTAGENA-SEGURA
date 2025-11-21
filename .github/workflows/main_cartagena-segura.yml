@@ -1,7 +1,7 @@
 # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 
-name: Build and deploy JAR app to Azure Web App - Cartagena-Segura
+name: Build and deploy JAR app to Azure Web App - CARTAGENA-SEGURA
 
 on:
   push:
@@ -11,33 +11,20 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     permissions:
-      contents: read
-
-    # ===== VARIABLES DE ENTORNO PARA TODO EL JOB =====
-    env:
-      DB_URL: ${{ secrets.DB_URL }}
-      DB_USER: ${{ secrets.DB_USER }}
-      DB_PASS: ${{ secrets.DB_PASS }}
-
-      MONGO_URL: ${{ secrets.MONGO_URL }}
-      MONGO_DB: ${{ secrets.MONGO_DB }}
-
-      JWT_SECRET: ${{ secrets.JWT_SECRET }}
-      JWT_EXPIRATION: ${{ secrets.JWT_EXPIRATION }}
+      contents: read #This is required for actions/checkout
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Set up Java version
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'microsoft'
 
-      - name: Build with Maven (runs tests + build)
+      - name: Build with Maven
         run: mvn clean install
 
       - name: Upload artifact for deployment job
@@ -47,29 +34,30 @@ jobs:
           path: '${{ github.workspace }}/target/*.jar'
 
   deploy:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     needs: build
     permissions:
-      id-token: write
-      contents: read
-
+      id-token: write #This is required for requesting the JWT
+      contents: read #This is required for actions/checkout
+  
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
           name: java-app
-
+      
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_CB9B2166C596407B83DA668A79D37FBB }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_4F3D08964C2F4484A468B64A7257D0C8 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_D31D0665897F43BD8B2F4DDB9A4F8022 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_8407A4F805CC47D2A5E106E18FB5BF23 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_9278E94FD33F41329DACC488785C5877 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_4DF9ED6126DC43D18E45640252D8B568 }}
 
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'Cartagena-Segura'
+          app-name: 'CARTAGENA-SEGURA'
           slot-name: 'Production'
           package: '*.jar'
+          
